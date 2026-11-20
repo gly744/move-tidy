@@ -1,0 +1,94 @@
+<Window x:Class="MoveTidy.PickWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MoveTidy"
+        Style="{StaticResource WinBase}"
+        Title="{local:T app}" Width="580" SizeToContent="Height" MaxHeight="900"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,12">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="{local:T cancel}" IsCancel="True" Margin="0,0,10,0" MinWidth="80"/>
+        <Button x:Name="MoveBtn" Content="{local:T move}" Style="{StaticResource PriBtn}" IsDefault="True" MinWidth="80" Click="Move_Click"/>
+      </StackPanel>
+    </Border>
+    <StackPanel Margin="16,8,16,16">
+      <TextBlock x:Name="Heading" Style="{StaticResource H2}"/>
+
+      <TextBlock Text="{local:T dest}" Style="{StaticResource Lbl}"/>
+      <WrapPanel x:Name="Chips"/>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Border Background="{StaticResource Card}" BorderBrush="{StaticResource LineStrong}" BorderThickness="1,1,1,2" CornerRadius="4" Height="32" Padding="10,0">
+          <TextBlock x:Name="PathBox" VerticalAlignment="Center" FontFamily="{StaticResource Mono}" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
+        </Border>
+        <Button Grid.Column="1" Content="{local:T browse}" Margin="8,0,0,0" Click="Browse_Click"/>
+      </Grid>
+      <CheckBox x:Name="DateBox" Margin="0,10,0,0" Checked="Changed" Unchecked="Changed">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{local:T date_folder}"/>
+          <TextBlock x:Name="DateText" Margin="8,0,0,0" Foreground="{StaticResource Muted}" FontFamily="{StaticResource Mono}" FontSize="12" VerticalAlignment="Center"/>
+        </StackPanel>
+      </CheckBox>
+
+      <TextBlock Text="{local:T naming}" Style="{StaticResource Lbl}" Margin="0,18,0,6"/>
+      <Border Style="{StaticResource CardBorder}">
+        <StackPanel>
+          <RadioButton x:Name="KeepRadio" Style="{StaticResource OptionCard}" GroupName="mode" Checked="Changed">
+            <StackPanel>
+              <TextBlock Text="{local:T keep}" FontWeight="SemiBold"/>
+              <TextBlock Text="{local:T keep_d}" Style="{StaticResource Hint}" Margin="0,2,0,0"/>
+            </StackPanel>
+          </RadioButton>
+          <Border Height="1" Background="{StaticResource Line}"/>
+          <RadioButton x:Name="NumRadio" Style="{StaticResource OptionCard}" GroupName="mode" Checked="Changed">
+            <StackPanel>
+              <TextBlock Text="{local:T num}" FontWeight="SemiBold"/>
+              <TextBlock Text="{local:T num_d}" Style="{StaticResource Hint}" Margin="0,2,0,0"/>
+              <Border x:Name="OrderSeg" Style="{StaticResource SegBox}" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal">
+                  <RadioButton x:Name="ByName" Style="{StaticResource Seg}" GroupName="order" Content="{local:T by_name}" Checked="Changed"/>
+                  <RadioButton x:Name="ByTime" Style="{StaticResource Seg}" GroupName="order" Content="{local:T by_time}" Checked="Changed"/>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </RadioButton>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Text="{local:T after}" Style="{StaticResource Lbl}" Margin="0,18,0,6"/>
+      <Border Style="{StaticResource CardBorder}">
+        <ItemsControl x:Name="Rows" MaxHeight="260" Grid.IsSharedSizeScope="True">
+          <ItemsControl.Template>
+            <ControlTemplate><ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter/></ScrollViewer></ControlTemplate>
+          </ItemsControl.Template>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="{StaticResource Line}" BorderThickness="{Binding Separator}" Padding="12,0" MinHeight="32">
+                <Grid VerticalAlignment="Center">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="tag"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Icon}" FontFamily="{StaticResource Icons}" Foreground="{StaticResource Muted}" FontSize="14" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{Binding From}" Foreground="{StaticResource Muted}" FontFamily="{StaticResource Mono}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding From}" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="2" Text="→" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="3" Text="{Binding To}" FontFamily="{StaticResource Mono}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding To}" VerticalAlignment="Center" Opacity="{Binding ToOpacity}"/>
+                  <Border Grid.Column="4" Background="{Binding TagBg}" CornerRadius="9" Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding TagVisibility}">
+                    <TextBlock Text="{Binding Tag}" Foreground="{Binding TagFg}" FontSize="11"/>
+                  </Border>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+    </StackPanel>
+  </DockPanel>
+</Window>

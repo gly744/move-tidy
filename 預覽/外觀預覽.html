@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>移動整理 外觀預覽</title>
+<style>
+:root, [data-style="a"] {
+  --page: #eef1f5; --win: #f9f9f9; --card: #ffffff; --line: #e3e3e3; --line-strong: #d0d0d0;
+  --text: #1b1b1b; --muted: #616161; --accent: #005fb8; --accent-ink: #ffffff; --accent-soft: #e6f0fa;
+  --ok: #0f7b0f; --warn-bg: #fff4ce; --warn-ink: #7a5a00;
+  --r: 8px; --r-sm: 4px; --pad: 20px; --gap: 12px; --fs: 14px;
+  --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft JhengHei UI", "Microsoft YaHei UI", sans-serif;
+  --mono: "Segoe UI Variable Text", "Segoe UI", "Microsoft JhengHei UI", sans-serif;
+  --shadow: 0 8px 32px rgba(0,0,0,.14), 0 0 0 1px rgba(0,0,0,.06);
+  --titlebar: transparent; --btn-r: 4px; --row-h: 36px;
+}
+[data-style="b"] {
+  --page: #0e0f11; --win: #18191c; --card: #202226; --line: #2c2e33; --line-strong: #3a3d43;
+  --text: #e7e8ea; --muted: #8a8e96; --accent: #3dd68c; --accent-ink: #062014; --accent-soft: #173326;
+  --ok: #3dd68c; --warn-bg: #3a2f12; --warn-ink: #f2c75c;
+  --r: 6px; --r-sm: 4px; --pad: 16px; --gap: 10px; --fs: 13px;
+  --font: "Segoe UI", "Microsoft JhengHei UI", "Microsoft YaHei UI", sans-serif;
+  --mono: "Cascadia Mono", Consolas, "Microsoft JhengHei UI", monospace;
+  --shadow: 0 12px 40px rgba(0,0,0,.55), 0 0 0 1px #2c2e33;
+  --titlebar: #141518; --btn-r: 5px; --row-h: 30px;
+}
+[data-style="c"] {
+  --page: #f4ece2; --win: #fffaf4; --card: #ffffff; --line: #eee2d4; --line-strong: #e0cfbc;
+  --text: #3d302a; --muted: #8f7d72; --accent: #e5704f; --accent-ink: #ffffff; --accent-soft: #fde9e1;
+  --ok: #4f9a6a; --warn-bg: #fdeedc; --warn-ink: #a35a1f;
+  --r: 18px; --r-sm: 12px; --pad: 26px; --gap: 14px; --fs: 15px;
+  --font: "Microsoft JhengHei UI", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  --mono: "Microsoft JhengHei UI", "Microsoft YaHei UI", sans-serif;
+  --shadow: 0 18px 50px rgba(120,80,40,.16), 0 0 0 1px rgba(120,80,40,.06);
+  --titlebar: transparent; --btn-r: 999px; --row-h: 44px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); font-family: var(--font); font-size: var(--fs); transition: background .25s; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; }
+
+/* 頂部控制列（固定樣式，不屬於設計稿） */
+.top { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.top h1 { font-size: 22px; margin: 0; font-weight: 650; }
+.hint { color: var(--muted); margin: 4px 0 20px; font-size: 13px; }
+.styles { display: flex; gap: 8px; flex-wrap: wrap; }
+.styles button { font: inherit; font-size: 13px; text-align: left; cursor: pointer; padding: 8px 14px; border-radius: 10px; border: 1.5px solid var(--line-strong); background: var(--card); color: var(--text); min-width: 150px; }
+.styles button b { display: block; font-size: 14px; }
+.styles button span { color: var(--muted); font-size: 12px; }
+.styles button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.lang { display: inline-flex; border: 1.5px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+.lang button { font: inherit; font-size: 13px; padding: 8px 14px; border: 0; background: var(--card); color: var(--text); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px 24px; align-items: start; }
+.cap { font-size: 13px; color: var(--muted); margin: 0 0 10px; font-weight: 600; letter-spacing: .02em; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* 右鍵選單：Windows 畫的，固定樣式 */
+.ctx-stage { position: relative; height: 300px; background: repeating-linear-gradient(45deg, transparent 0 10px, rgba(127,127,127,.06) 10px 20px); border-radius: 10px; border: 1px dashed var(--line-strong); }
+.ctx { position: absolute; background: #f9f9f9; border: 1px solid #d6d6d6; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 4px; font-family: "Segoe UI", "Microsoft JhengHei UI", "Microsoft YaHei UI", sans-serif; font-size: 13px; color: #1b1b1b; min-width: 190px; }
+.ctx .it { padding: 6px 28px 6px 12px; border-radius: 4px; white-space: nowrap; position: relative; }
+.ctx .it.on { background: #e8e8e8; }
+.ctx .it.sub::after { content: "›"; position: absolute; right: 10px; top: 3px; font-size: 16px; color: #555; }
+.ctx hr { border: 0; border-top: 1px solid #e3e3e3; margin: 4px 6px; }
+.ctx .it .d { color: #707070; }
+.ctx-main { left: 18px; top: 22px; }
+.ctx-sub { left: 196px; top: 90px; min-width: 250px; }
+@media (max-width: 520px) { .ctx-sub { left: 60px; top: 150px; } .ctx-stage { height: 390px; } }
+
+/* 視窗共用 */
+.win { background: var(--win); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; transition: background .25s; }
+.tb { display: flex; align-items: center; gap: 10px; padding: 10px 6px 10px var(--pad); background: var(--titlebar); font-size: 12.5px; color: var(--muted); }
+.tb .logo { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); display: grid; place-items: center; color: var(--accent-ink); font-size: 10px; font-weight: 700; }
+[data-style="c"] .tb .logo { border-radius: 50%; }
+.tb .sp { flex: 1; }
+.tb .ctl { width: 40px; text-align: center; opacity: .7; }
+.body { padding: 4px var(--pad) var(--pad); }
+.h2 { font-size: calc(var(--fs) + 5px); font-weight: 650; margin: 6px 0 calc(var(--gap) + 4px); }
+.lbl { font-size: calc(var(--fs) - 1px); color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.sec { margin-bottom: calc(var(--gap) + 6px); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-sm); }
+[data-style="c"] .card { border-radius: calc(var(--r) - 4px); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: inherit; font-size: calc(var(--fs) - 1px); cursor: pointer; padding: 6px 12px; border-radius: var(--btn-r); border: 1px solid var(--line-strong); background: var(--card); color: var(--text); display: inline-flex; gap: 6px; align-items: center; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+.chip svg { width: 15px; height: 15px; }
+.path { display: flex; gap: 8px; }
+.path .in { flex: 1; min-width: 0; padding: 0 10px; height: var(--row-h); display: flex; align-items: center; background: var(--card); border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: var(--r-sm); font-family: var(--mono); font-size: calc(var(--fs) - 1px); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+[data-style="c"] .path .in { border-bottom-width: 1px; border-radius: 12px; }
+.path .in .dt { color: var(--accent); font-weight: 600; }
+[data-style="c"] .path .in .dt { color: var(--accent); }
+
+.btn { font: inherit; font-size: var(--fs); cursor: pointer; height: var(--row-h); padding: 0 16px; border-radius: var(--btn-r); border: 1px solid var(--line-strong); background: var(--card); color: var(--text); white-space: nowrap; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+[data-style="c"] .btn { padding: 0 22px; }
+
+.check { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; padding: 4px 0; }
+.box { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--line-strong); background: var(--card); display: grid; place-items: center; flex: none; }
+[data-style="c"] .box { border-radius: 6px; width: 20px; height: 20px; }
+.check.on .box { background: var(--accent); border-color: var(--accent); }
+.check.on .box::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--accent-ink); border-bottom: 2px solid var(--accent-ink); transform: rotate(-45deg) translate(1px, -1px); }
+.check small { color: var(--muted); font-family: var(--mono); }
+
+.seg { display: inline-flex; padding: 3px; gap: 3px; background: var(--page); border: 1px solid var(--line); border-radius: calc(var(--btn-r) + 3px); flex-wrap: wrap; }
+[data-style="a"] .seg, :root:not([data-style]) .seg { border-radius: 7px; }
+.seg button { font: inherit; font-size: calc(var(--fs) - 1px); cursor: pointer; border: 0; background: transparent; color: var(--muted); padding: 6px 14px; border-radius: var(--btn-r); }
+[data-style="a"] .seg button { border-radius: 5px; }
+.seg button[aria-pressed="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); font-weight: 600; }
+[data-style="b"] .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
+
+.radio { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; cursor: pointer; border-radius: var(--r-sm); }
+.radio + .radio { border-top: 1px solid var(--line); }
+.radio .dot { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line-strong); margin-top: 1px; flex: none; display: grid; place-items: center; }
+.radio.on .dot { border: 5px solid var(--accent); }
+.radio .t { font-weight: 600; }
+.radio .s { color: var(--muted); font-size: calc(var(--fs) - 1.5px); margin-top: 2px; }
+.radio .seg { margin-top: 8px; }
+.radio:not(.on) .seg { opacity: .45; pointer-events: none; }
+
+.list { max-height: 248px; overflow: auto; }
+.row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 0 12px; min-height: var(--row-h); }
+.row + .row { border-top: 1px solid var(--line); }
+.row svg { width: 18px; height: 18px; color: var(--muted); }
+.row .o { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: calc(var(--fs) - 1px); }
+.row .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: calc(var(--fs) - 1px); font-weight: 600; }
+.row .ar { color: var(--muted); text-align: center; }
+.tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-ink); white-space: nowrap; }
+.foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px var(--pad); border-top: 1px solid var(--line); background: var(--card); }
+[data-style="b"] .foot { background: var(--win); }
+[data-style="c"] .foot { background: transparent; border-top: 0; padding-top: 0; }
+
+/* 快速移動小窗 */
+.toast-stage { position: relative; height: 300px; border-radius: 10px; border: 1px dashed var(--line-strong); background: linear-gradient(160deg, rgba(127,127,127,.05), rgba(127,127,127,.12)); overflow: hidden; }
+.toast { position: absolute; right: 16px; bottom: 16px; width: min(360px, calc(100% - 32px)); background: var(--win); border-radius: var(--r); box-shadow: var(--shadow); padding: 16px var(--pad) 18px; transition: opacity .4s, transform .4s; }
+.toast.hide { opacity: 0; transform: translateY(12px); }
+.toast .l1 { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.toast .l1 .ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+[data-style="c"] .toast .l1 .ic { border-radius: 50%; }
+.toast .l1 .ic svg { width: 17px; height: 17px; }
+.toast .l2 { color: var(--muted); font-size: calc(var(--fs) - 1px); margin: 8px 0 10px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+[data-style="a"] .bar { height: 4px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width .15s linear; }
+.toast.done .bar i { background: var(--ok); }
+.toast .l3 { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+/* 設定程式 */
+.set { display: grid; grid-template-columns: 150px minmax(0, 1fr); min-height: 460px; }
+[data-style="c"] .set { grid-template-columns: 170px minmax(0, 1fr); }
+.nav { padding: 6px 8px 16px; display: flex; flex-direction: column; gap: 2px; }
+.nav a { padding: 9px 12px; border-radius: var(--r-sm); color: var(--text); text-decoration: none; position: relative; font-size: calc(var(--fs) - .5px); }
+.nav a.on { background: var(--accent-soft); font-weight: 600; }
+[data-style="a"] .nav a.on { background: rgba(0,0,0,.05); }
+[data-style="a"] .nav a.on::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--accent); }
+[data-style="b"] .nav a.on { color: var(--accent); }
+[data-style="c"] .nav a.on { background: var(--card); box-shadow: 0 2px 10px rgba(120,80,40,.10); color: var(--accent); }
+.main { padding: 4px var(--pad) var(--pad) 8px; min-width: 0; }
+.fav { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 12px; }
+.fav > div { flex: 1 1 120px; min-width: 0; }
+.fav .tgl { margin-left: auto; }
+.fav + .fav { border-top: 1px solid var(--line); }
+.fav svg { width: 20px; height: 20px; color: var(--accent); }
+.fav .nm { font-weight: 600; }
+.fav .pt { color: var(--muted); font-family: var(--mono); font-size: calc(var(--fs) - 2px); }
+.tg { width: 38px; height: 20px; border-radius: 99px; border: 1.5px solid var(--line-strong); position: relative; cursor: pointer; flex: none; background: var(--card); }
+.tg::after { content: ""; position: absolute; top: 3px; left: 3px; width: 11px; height: 11px; border-radius: 50%; background: var(--muted); transition: left .15s; }
+.tg.on { background: var(--accent); border-color: var(--accent); }
+.tg.on::after { left: 21px; background: var(--accent-ink); }
+.tgl { display: flex; align-items: center; gap: 8px; font-size: calc(var(--fs) - 2px); color: var(--muted); white-space: nowrap; }
+.opt { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; flex-wrap: wrap; }
+.opt + .opt { border-top: 1px solid var(--line); }
+.sel { font: inherit; font-size: calc(var(--fs) - 1px); height: 32px; padding: 0 10px; border-radius: var(--btn-r); border: 1px solid var(--line-strong); background: var(--card); color: var(--text); }
+.addrow { display: flex; gap: 8px; margin-top: 8px; }
+.addrow .btn { height: 32px; font-size: calc(var(--fs) - 1px); }
+@media (max-width: 700px) { .set, [data-style] .set { grid-template-columns: minmax(0, 1fr); } .nav { flex-direction: row; overflow-x: auto; } .nav a { white-space: nowrap; } .main { padding-left: var(--pad); } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.6c.6 0 1.2.24 1.6.67L12.2 6.2h6.3A2.5 2.5 0 0 1 21 8.7v8.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M6 3h8l5 5v11.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5v-15A1.5 1.5 0 0 1 6 3zM14 3v5h5"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.8" fill="currentColor"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="top">
+    <h1 data-t="title"></h1>
+    <div class="lang" role="group">
+      <button data-lang="tw">繁體</button><button data-lang="cn">简体</button>
+    </div>
+  </div>
+  <p class="hint" data-t="hint"></p>
+  <div class="styles" role="group" style="margin-bottom:28px">
+    <button data-st="a"><b data-t="sa"></b><span data-t="sad"></span></button>
+    <button data-st="b"><b data-t="sb"></b><span data-t="sbd"></span></button>
+    <button data-st="c"><b data-t="sc"></b><span data-t="scd"></span></button>
+  </div>
+
+  <div class="grid">
+    <!-- 右鍵選單 -->
+    <section>
+      <p class="cap" data-t="capMenu"></p>
+      <div class="ctx-stage">
+        <div class="ctx ctx-main">
+          <div class="it" data-t="mOpen"></div>
+          <hr>
+          <div class="it" data-t="mCut"></div>
+          <div class="it" data-t="mCopy"></div>
+          <hr>
+          <div class="it sub on" data-t="app"></div>
+          <hr>
+          <div class="it" data-t="mDel"></div>
+          <div class="it" data-t="mRen"></div>
+          <hr>
+          <div class="it" data-t="mProp"></div>
+        </div>
+        <div class="ctx ctx-sub" id="ctxSub"></div>
+      </div>
+    </section>
+
+    <!-- 快速移動 -->
+    <section>
+      <p class="cap" data-t="capToast"></p>
+      <div class="toast-stage">
+        <div class="toast" id="toast">
+          <div class="l1"><span class="ic"><svg><use href="#i-move"/></svg></span><span id="tTitle"></span></div>
+          <div class="l2" id="tPath"></div>
+          <div class="bar"><i id="tBar"></i></div>
+          <div class="l3"><span id="tLeft"></span><span id="tRight"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 移到其他位置 -->
+    <section>
+      <p class="cap" data-t="capDlg"></p>
+      <div class="win">
+        <div class="tb"><span class="logo">移</span><span data-t="app"></span><span class="sp"></span><span class="ctl">—</span><span class="ctl">✕</span></div>
+        <div class="body">
+          <div class="h2" id="dTitle"></div>
+          <div class="sec">
+            <p class="lbl" data-t="dest"></p>
+            <div class="chips" id="chips"></div>
+            <div class="path"><div class="in" id="dPath"></div><button class="btn" data-t="browse"></button></div>
+            <div class="check on" id="dDate" style="margin-top:8px"><span class="box"></span><span data-t="dateFolder"></span><small>2026-11-20</small></div>
+          </div>
+          <div class="sec">
+            <p class="lbl" data-t="naming"></p>
+            <div class="card">
+              <div class="radio on" data-mode="keep"><span class="dot"></span><div><div class="t" data-t="keep"></div><div class="s" data-t="keepD"></div></div></div>
+              <div class="radio" data-mode="num"><span class="dot"></span><div><div class="t" data-t="num"></div><div class="s" data-t="numD"></div>
+                <div class="seg" id="dOrder"><button data-o="name" data-t="byName"></button><button data-o="time" data-t="byTime"></button></div></div></div>
+            </div>
+          </div>
+          <div class="sec" style="margin-bottom:4px">
+            <p class="lbl" data-t="after"></p>
+            <div class="card list" id="list"></div>
+          </div>
+        </div>
+        <div class="foot"><button class="btn" data-t="cancel"></button><button class="btn pri" data-t="move"></button></div>
+      </div>
+    </section>
+
+    <!-- 設定程式 -->
+    <section>
+      <p class="cap" data-t="capSet"></p>
+      <div class="win">
+        <div class="tb"><span class="logo">移</span><span data-t="setTitle"></span><span class="sp"></span><span class="ctl">—</span><span class="ctl">▢</span><span class="ctl">✕</span></div>
+        <div class="set">
+          <nav class="nav">
+            <a class="on" data-t="nFav"></a><a data-t="nName"></a><a data-t="nMenu"></a><a data-t="nLang"></a>
+          </nav>
+          <div class="main">
+            <div class="h2" data-t="nFav"></div>
+            <div class="card" id="favs"></div>
+            <div class="addrow"><button class="btn" data-t="add"></button><button class="btn" data-t="remove"></button></div>
+
+            <div class="h2" style="margin-top:26px" data-t="quickDef"></div>
+            <div class="card">
+              <div class="opt"><span data-t="naming"></span><div class="seg" id="sMode"><button data-v="keep" data-t="keepS"></button><button data-v="num" data-t="num"></button></div></div>
+              <div class="opt"><span data-t="order"></span><div class="seg" id="sOrder"><button data-v="name" data-t="byName"></button><button data-v="time" data-t="byTime"></button></div></div>
+              <div class="opt"><span data-t="digits"></span><select class="sel"><option>001</option><option>01</option><option>1</option></select></div>
+              <div class="opt"><span data-t="autoClose"></span><span class="tg on" onclick="this.classList.toggle('on')"></span></div>
+              <div class="opt"><span data-t="nLang"></span><select class="sel" id="sLang"><option value="tw">繁體中文</option><option value="cn">简体中文</option></select></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const T = {
+  tw: {
+    title: "移動整理 · 外觀預覽", hint: "選一種樣式看看，按鈕都可以點著試，不會動到真的檔案。右上角可以切換繁體／簡體。",
+    sa: "A 原生清爽", sad: "跟 Windows 11 一致，淺色、藍色", sb: "B 深色俐落", sbd: "深色底、綠色重點、資訊緊湊", sc: "C 柔和卡片", scd: "暖色、大圓角、寬鬆好讀",
+    capMenu: "① 右鍵選單（由 Windows 繪製，三種樣式都一樣）", capToast: "② 快速移動：不用點，完成後自動關閉", capDlg: "③「移到其他位置…」視窗", capSet: "④ 設定程式",
+    app: "移動整理", mOpen: "開啟", mCut: "剪下", mCopy: "複製", mDel: "刪除", mRen: "重新命名", mProp: "內容",
+    to: "移到", other: "移到其他位置…", settings: "設定…",
+    dlgTitle: n => `移動 ${n} 個項目`, dest: "目的地", browse: "瀏覽…", dateFolder: "建立今天日期資料夾",
+    naming: "命名方式", keep: "保留原名", keepS: "保留原名", keepD: "重名時自動加號碼：照片.jpg → 照片 (2).jpg", num: "純數字編號", numD: "目的地已有 001～005，從 006 接著編",
+    byName: "依檔名", byTime: "依修改時間", order: "編號順序", after: "移動後的名字", renamed: "已改名",
+    cancel: "取消", move: "移動",
+    moving: n => `正在移動 ${n} 個項目`, done: "移動完成", progress: (a, b) => `${a} / ${b}`, conflicts: n => `${n} 個重名已自動改名`, closing: s => `${s} 秒後自動關閉`,
+    setTitle: "移動整理 · 設定", nFav: "常用目的地", nName: "命名規則", nMenu: "右鍵選單", nLang: "語言", showDate: "也顯示今天日期版本",
+    add: "新增…", remove: "移除", quickDef: "快速移動的預設", digits: "編號位數", autoClose: "完成後自動關閉",
+    favA: "下載整理", favB: "照片備份", favC: "工作文件"
+  },
+  cn: {
+    title: "移动整理 · 外观预览", hint: "选一种样式看看，按钮都可以点着试，不会动到真的文件。右上角可以切换繁体／简体。",
+    sa: "A 原生清爽", sad: "跟 Windows 11 一致，浅色、蓝色", sb: "B 深色利落", sbd: "深色底、绿色重点、信息紧凑", sc: "C 柔和卡片", scd: "暖色、大圆角、宽松好读",
+    capMenu: "① 右键菜单（由 Windows 绘制，三种样式都一样）", capToast: "② 快速移动：不用点，完成后自动关闭", capDlg: "③「移到其他位置…」窗口", capSet: "④ 设置程序",
+    app: "移动整理", mOpen: "打开", mCut: "剪切", mCopy: "复制", mDel: "删除", mRen: "重命名", mProp: "属性",
+    to: "移到", other: "移到其他位置…", settings: "设置…",
+    dlgTitle: n => `移动 ${n} 个项目`, dest: "目的地", browse: "浏览…", dateFolder: "创建今天日期文件夹",
+    naming: "命名方式", keep: "保留原名", keepS: "保留原名", keepD: "重名时自动加编号：照片.jpg → 照片 (2).jpg", num: "纯数字编号", numD: "目的地已有 001～005，从 006 接着编",
+    byName: "按文件名", byTime: "按修改时间", order: "编号顺序", after: "移动后的名字", renamed: "已改名",
+    cancel: "取消", move: "移动",
+    moving: n => `正在移动 ${n} 个项目`, done: "移动完成", progress: (a, b) => `${a} / ${b}`, conflicts: n => `${n} 个重名已自动改名`, closing: s => `${s} 秒后自动关闭`,
+    setTitle: "移动整理 · 设置", nFav: "常用目的地", nName: "命名规则", nMenu: "右键菜单", nLang: "语言", showDate: "也显示今天日期版本",
+    add: "新增…", remove: "移除", quickDef: "快速移动的默认设置", digits: "编号位数", autoClose: "完成后自动关闭",
+    favA: "下载整理", favB: "照片备份", favC: "工作文件"
+  }
+};
+const DATE = "2026-11-20";
+const S = { lang: "tw", style: "a", mode: "keep", order: "name", date: true, dest: 0, sMode: "keep", sOrder: "name", favDate: [true, true, false] };
+const favPaths = ["D:\\下載整理", "D:\\照片備份", "D:\\工作文件"];
+const files = [
+  { n: "IMG_2041.jpg", t: "2026-11-18 10:02", k: "img" },
+  { n: "IMG_2039.jpg", t: "2026-11-19 08:15", k: "img" },
+  { n: "報告.docx", t: "2026-11-20 09:30", k: "file" },
+  { n: "截圖.png", t: "2026-11-17 21:40", k: "img" },
+  { n: "會議資料", t: "2026-11-16 14:05", k: "folder" }
+];
+const existing = new Set(["報告.docx", "截圖.png", "截圖 (2).png", "會議資料"]);
+const t = k => T[S.lang][k];
+const ico = k => `<svg><use href="#i-${k}"/></svg>`;
+const split = f => { if (f.k === "folder") return [f.n, ""]; const i = f.n.lastIndexOf("."); return [f.n.slice(0, i), f.n.slice(i)]; };
+const favName = i => t(["favA", "favB", "favC"][i]);
+
+function newNames() {
+  if (S.mode === "keep") return files.map(f => {
+    if (!existing.has(f.n)) return { f, nn: f.n, ch: false };
+    const [b, e] = split(f); let i = 2; while (existing.has(`${b} (${i})${e}`)) i++;
+    return { f, nn: `${b} (${i})${e}`, ch: true };
+  });
+  const sorted = [...files].sort((x, y) => S.order === "name" ? x.n.localeCompare(y.n, "zh-Hant", { numeric: true }) : x.t.localeCompare(y.t));
+  return sorted.map((f, i) => ({ f, nn: String(6 + i).padStart(3, "0") + split(f)[1], ch: true }));
+}
+
+function render() {
+  const root = document.documentElement;
+  root.dataset.style = S.style; root.lang = S.lang === "tw" ? "zh-Hant" : "zh-Hans";
+  document.title = t("title");
+  document.querySelectorAll("[data-t]").forEach(el => { const v = t(el.dataset.t); if (typeof v === "string") el.textContent = v; });
+  document.querySelectorAll("[data-lang]").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === S.lang));
+  document.querySelectorAll("[data-st]").forEach(b => b.setAttribute("aria-pressed", b.dataset.st === S.style));
+  document.getElementById("sLang").value = S.lang;
+
+  // 右鍵子選單
+  let sub = "";
+  [0, 1, 2].forEach(i => {
+    sub += `<div class="it${i === 0 ? " on" : ""}">${t("to")}「${favName(i)}」</div>`;
+    if (S.favDate[i]) sub += `<div class="it">${t("to")}「${favName(i)}\\<span class="d">${DATE}</span>」</div>`;
+  });
+  sub += `<hr><div class="it">${t("other")}</div><div class="it">${t("settings")}</div>`;
+  document.getElementById("ctxSub").innerHTML = sub;
+
+  // 對話框
+  document.getElementById("dTitle").textContent = t("dlgTitle")(files.length);
+  document.getElementById("chips").innerHTML = [0, 1, 2].map(i => `<button class="chip" data-d="${i}" aria-pressed="${S.dest === i}">${ico("folder")}${favName(i)}</button>`).join("");
+  document.getElementById("dPath").innerHTML = `D:\\${favName(S.dest)}` + (S.date ? `\\<span class="dt">${DATE}</span>` : "");
+  document.getElementById("dDate").classList.toggle("on", S.date);
+  document.querySelectorAll(".radio").forEach(r => r.classList.toggle("on", r.dataset.mode === S.mode));
+  document.querySelectorAll("#dOrder button").forEach(b => b.setAttribute("aria-pressed", b.dataset.o === S.order));
+  document.getElementById("list").innerHTML = newNames().map(({ f, nn, ch }) =>
+    `<div class="row">${ico(f.k)}<span class="o" title="${f.n}">${f.n}</span><span class="ar">→</span><span class="n">${nn}</span>${ch ? `<span class="tag">${t("renamed")}</span>` : "<span></span>"}</div>`).join("");
+
+  // 設定
+  document.getElementById("favs").innerHTML = [0, 1, 2].map(i =>
+    `<div class="fav">${ico("folder")}<div><div class="nm">${favName(i)}</div><div class="pt">D:\\${favName(i)}</div></div><label class="tgl">${t("showDate")}<span class="tg${S.favDate[i] ? " on" : ""}" data-fd="${i}"></span></label></div>`).join("");
+  document.querySelectorAll("#sMode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === S.sMode));
+  document.querySelectorAll("#sOrder button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === S.sOrder));
+  renderToast();
+}
+
+// 快速移動動畫
+const Q = { total: 12, n: 0, phase: "run", sec: 3 };
+function renderToast() {
+  const el = document.getElementById("toast");
+  el.classList.toggle("done", Q.phase !== "run");
+  el.querySelector(".ic").innerHTML = ico(Q.phase === "run" ? "move" : "ok");
+  document.getElementById("tTitle").textContent = Q.phase === "run" ? t("moving")(Q.total) : t("done");
+  document.getElementById("tPath").textContent = `→ D:\\${favName(0)}\\${DATE}`;
+  document.getElementById("tBar").style.width = (Q.n / Q.total * 100) + "%";
+  document.getElementById("tLeft").textContent = Q.phase === "run" ? t("progress")(Q.n, Q.total) : t("conflicts")(3);
+  document.getElementById("tRight").textContent = Q.phase === "run" ? "" : t("closing")(Q.sec);
+}
+function tick() {
+  const el = document.getElementById("toast");
+  if (Q.phase === "run") {
+    Q.n++; if (Q.n >= Q.total) { Q.phase = "done"; Q.sec = 3; }
+    renderToast(); setTimeout(tick, Q.phase === "run" ? 170 : 1000);
+  } else if (Q.phase === "done") {
+    Q.sec--;
+    if (Q.sec <= 0) { el.classList.add("hide"); Q.phase = "gone"; setTimeout(tick, 1400); }
+    else { renderToast(); setTimeout(tick, 1000); }
+  } else {
+    Q.n = 0; Q.phase = "run"; renderToast(); el.classList.remove("hide"); setTimeout(tick, 500);
+  }
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-lang],[data-st],[data-d],#dDate,.radio,[data-o],#sMode button,#sOrder button,[data-fd]");
+  if (!b) return;
+  if (b.dataset.lang) S.lang = b.dataset.lang;
+  else if (b.dataset.st) S.style = b.dataset.st;
+  else if (b.dataset.d) S.dest = +b.dataset.d;
+  else if (b.id === "dDate") S.date = !S.date;
+  else if (b.dataset.o) { S.order = b.dataset.o; S.mode = "num"; }
+  else if (b.classList.contains("radio")) S.mode = b.dataset.mode;
+  else if (b.dataset.fd) S.favDate[+b.dataset.fd] = !S.favDate[+b.dataset.fd];
+  else if (b.closest("#sMode")) S.sMode = b.dataset.v;
+  else if (b.closest("#sOrder")) S.sOrder = b.dataset.v;
+  render();
+});
+document.getElementById("sLang").addEventListener("change", e => { S.lang = e.target.value; render(); });
+render(); setTimeout(tick, 600);
+</script>
+</body>
+</html>
