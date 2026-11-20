@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>圖示預覽</title>
+<style>
+  :root { --bg: #0e0f11; --card: #18191c; --line: #2c2e33; --fg: #e7e8ea; --muted: #8a8e96; --accent: #3dd68c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Segoe UI", "Microsoft JhengHei UI", sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .card.rec { border-color: var(--accent); box-shadow: 0 0 0 2px #173326; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; display: flex; gap: 8px; align-items: center; }
+  .badge { font-size: 11px; background: #173326; color: var(--accent); padding: 2px 8px; border-radius: 99px; }
+  .card p { color: var(--muted); font-size: 13px; margin: 0 0 14px; line-height: 1.5; }
+  .big { display: flex; gap: 12px; }
+  .big div { flex: 1; border-radius: 10px; display: grid; place-items: center; padding: 16px 0; }
+  .big .d { background: #202226; } .big .l { background: #f3f3f3; }
+  .big img { width: 112px; height: 112px; }
+  .sizes { display: flex; align-items: flex-end; gap: 16px; margin: 16px 0; padding: 12px; background: #202226; border-radius: 10px; }
+  .sizes figure { margin: 0; text-align: center; color: var(--muted); font-size: 11px; }
+  .sizes img { display: block; margin: 0 auto 4px; }
+  /* 模擬右鍵選單（淺色） */
+  .menu { background: #f9f9f9; color: #1b1b1b; border: 1px solid #d6d6d6; border-radius: 8px; padding: 4px; font-size: 13px; }
+  .menu div { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 4px; }
+  .menu div.on { background: #e8e8e8; }
+  .menu i { width: 16px; height: 16px; display: inline-block; }
+  .menu img { width: 16px; height: 16px; }
+  /* 模擬工作列 */
+  .bar { margin-top: 10px; background: #202020; border-radius: 8px; display: flex; gap: 6px; padding: 6px; justify-content: center; }
+  .bar span { width: 40px; height: 40px; border-radius: 6px; display: grid; place-items: center; }
+  .bar span.on { background: #ffffff14; }
+  .bar img { width: 24px; height: 24px; }
+  .bar b { width: 24px; height: 24px; border-radius: 6px; background: #3a3d43; display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>移動整理 · 圖示預覽</h1>
+  <p class="hint">三種方向都配合深色俐落的介面。下面的小尺寸是它在右鍵選單（16）、工作列（24）、桌面捷徑（32、48）實際會看到的大小。</p>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+const items = [
+  { f: "a.svg", t: "A 箭頭進資料夾", rec: true, d: "最直接：一個箭頭搬進資料夾。小到 16 像素還是看得出來，右鍵選單裡最好認。" },
+  { f: "b.svg", t: "B 重名自動編號", d: "強調「重名自動加號碼」：兩張同名的檔案，前面那張掛著綠色的 2。" },
+  { f: "c.svg", t: "C 今天的資料夾", d: "強調「今天日期資料夾」：日曆從資料夾裡探出來，再加上搬進來的箭頭。細節多，小尺寸會糊一點。" },
+];
+document.getElementById("grid").innerHTML = items.map(x => `
+  <div class="card${x.rec ? " rec" : ""}">
+    <h2>${x.t}${x.rec ? '<span class="badge">推薦・已套用</span>' : ""}</h2>
+    <p>${x.d}</p>
+    <div class="big"><div class="d"><img src="圖示/${x.f}"></div><div class="l"><img src="圖示/${x.f}"></div></div>
+    <div class="sizes">${[48, 32, 24, 16].map(s => `<figure><img src="圖示/${x.f}" width="${s}" height="${s}">${s}</figure>`).join("")}</div>
+    <div class="menu">
+      <div><i></i>剪下</div>
+      <div class="on"><img src="圖示/${x.f}">移動整理</div>
+      <div><i></i>刪除</div>
+    </div>
+    <div class="bar"><span><b></b></span><span class="on"><img src="圖示/${x.f}"></span><span><b></b></span></div>
+  </div>`).join("");
+</script>
+</body>
+</html>

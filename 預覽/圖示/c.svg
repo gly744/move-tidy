@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="c-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2e34"/>
+      <stop offset="1" stop-color="#151619"/>
+    </linearGradient>
+    <linearGradient id="c-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4fe39b"/>
+      <stop offset="1" stop-color="#2cc177"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="232" height="232" rx="56" fill="url(#c-bg)"/>
+  <rect x="12.75" y="12.75" width="230.5" height="230.5" rx="55.25" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="1.5"/>
+  <!-- 資料夾後片 -->
+  <path d="M40 92q0-14 14-14h46q8 0 13 6l12 14h77q14 0 14 14v90q0 14-14 14H54q-14 0-14-14z" fill="#1d9a5c"/>
+  <!-- 日曆：今天的資料夾 -->
+  <g transform="rotate(-6 128 90)">
+    <rect x="76" y="34" width="104" height="104" rx="14" fill="#e9eaec"/>
+    <path d="M76 48q0-14 14-14h76q14 0 14 14v12H76z" fill="#f2c75c"/>
+    <rect x="98" y="24" width="10" height="24" rx="5" fill="#7a5a00"/>
+    <rect x="148" y="24" width="10" height="24" rx="5" fill="#7a5a00"/>
+    <rect x="92" y="72" width="18" height="16" rx="4" fill="#b9bcc2"/>
+    <rect x="119" y="72" width="18" height="16" rx="4" fill="#b9bcc2"/>
+    <rect x="146" y="72" width="18" height="16" rx="4" fill="#3dd68c"/>
+  </g>
+  <!-- 資料夾前片 -->
+  <path d="M40 124q0-12 12-12h152q12 0 12 12v78q0 14-14 14H54q-14 0-14-14z" fill="url(#c-front)"/>
+  <path d="M96 166h56M130 146l22 20-22 20" fill="none" stroke="#062014" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

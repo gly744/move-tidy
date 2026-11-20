@@ -13,6 +13,7 @@
     <Version>0.1.0</Version>
     <Product>移動整理</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

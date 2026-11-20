@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- A 的小尺寸版（16、20、24）：拿掉外框，資料夾放大、箭頭加粗 -->
+  <path d="M8 52q0-20 20-20h64q10 0 17 8l16 18h103q20 0 20 20v150q0 20-20 20H28q-20 0-20-20z" fill="#1a8f55"/>
+  <path d="M8 106q0-16 16-16h208q16 0 16 16v112q0 20-20 20H28q-20 0-20-20z" fill="#3dd68c"/>
+  <path d="M68 164h114M144 126l40 38-40 38" fill="none" stroke="#062014" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

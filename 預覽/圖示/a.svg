@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="a-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2e34"/>
+      <stop offset="1" stop-color="#151619"/>
+    </linearGradient>
+    <linearGradient id="a-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4fe39b"/>
+      <stop offset="1" stop-color="#2cc177"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="232" height="232" rx="56" fill="url(#a-bg)"/>
+  <rect x="12.75" y="12.75" width="230.5" height="230.5" rx="55.25" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="1.5"/>
+  <!-- 資料夾後片 -->
+  <path d="M40 78q0-14 14-14h46q8 0 13 6l12 14h77q14 0 14 14v104q0 14-14 14H54q-14 0-14-14z" fill="#1d9a5c"/>
+  <!-- 資料夾前片 -->
+  <path d="M40 116q0-12 12-12h152q12 0 12 12v86q0 14-14 14H54q-14 0-14-14z" fill="url(#a-front)"/>
+  <!-- 箭頭：搬進來 -->
+  <path d="M90 160h66M132 136l25 24-25 24" fill="none" stroke="#062014" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

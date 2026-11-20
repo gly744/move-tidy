@@ -37,6 +37,7 @@ dotnet test MoveTidy.sln
 | `src/MoveTidy/L.cs` | 所有介面文字（繁體、簡體各一份） |
 | `tests/MoveTidy.Tests` | 自動測試，只在暫存資料夾裡建檔案 |
 | `預覽/外觀預覽.html` | 開工前的三種外觀預覽，選定 B「深色俐落」 |
+| `預覽/圖示/`、`預覽/圖示預覽.html` | 圖示設計稿（SVG）；目前用 A。改完執行 `python scripts/make_icon.py a` 重新產生 `app.ico`（需要 Microsoft Edge） |
 
 設定檔在 `%APPDATA%\MoveTidy\settings.json`。測試或試用時可以設環境變數 `MOVETIDY_DATA` 指到別的資料夾，就不會碰到真正的設定。
 
