@@ -42,6 +42,8 @@ public static class ContextMenuInstaller
             using var root = Registry.CurrentUser.CreateSubKey(target);
             root.SetValue("MUIVerb", L.Get("app"));
             root.SetValue("SubCommands", "");
+            // 沒設的話預設是 Document：選超過 15 個項目時，Windows 會把整個「移動整理」藏起來
+            root.SetValue("MultiSelectModel", "Player");
             root.SetValue("Icon", $"\"{exe}\",0");
             using var shell = root.CreateSubKey("shell");
             int order = 0;
@@ -55,7 +57,14 @@ public static class ContextMenuInstaller
             Add(shell, 90, L.Get("menu_other"), $"\"{exe}\" --pick \"%1\"", s.Favorites.Count > 0);
             Add(shell, 91, L.Get("menu_settings"), $"\"{exe}\"", false);
         }
+        NotifyExplorer();
     }
+
+    /// <summary>告訴檔案總管右鍵選單有變動，讓它重新讀取。</summary>
+    static void NotifyExplorer() => SHChangeNotify(0x08000000 /* SHCNE_ASSOCCHANGED */, 0, IntPtr.Zero, IntPtr.Zero);
+
+    [System.Runtime.InteropServices.DllImport("shell32.dll")]
+    static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
 
     static void Add(RegistryKey shell, int order, string text, string command, bool separatorBefore)
     {
@@ -71,5 +80,6 @@ public static class ContextMenuInstaller
     {
         foreach (var target in Targets)
             Registry.CurrentUser.DeleteSubKeyTree(target, throwOnMissingSubKey: false);
+        NotifyExplorer();
     }
 }
