@@ -50,7 +50,14 @@ public static class Program
             }
         }
 
-        if (kind != Kind.Settings)
+        // 設定視窗只開一個（檔案總管選了多個項目再點「設定…」也會啟動很多次）
+        SingleWindow? single = null;
+        if (kind == Kind.Settings)
+        {
+            single = SingleWindow.Claim($"Settings|{AppSettings.DataDir}");
+            if (single is null) return 0;
+        }
+        else
         {
             // 檔案總管選了多個項目時，會為每個項目各啟動一次本程式；
             // 第一個啟動的負責收集，其他的把路徑交給它後立刻結束。
@@ -81,9 +88,64 @@ public static class Program
             case Kind.Pick:
                 return app.Run(new PickWindow(settings, paths));
             default:
-                return app.Run(new SettingsWindow(settings));
+                var win = new SettingsWindow(settings);
+                single!.BringToFrontOnSignal(win);
+                return app.Run(win);
         }
     }
+
+    /// <summary>把任意字串轉成可當作系統物件名稱的短名字（同一個使用者同一個 key 得到同一個名字）。</summary>
+    public static string ObjectName(string key) =>
+        "MoveTidy-" + Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes($"{Environment.UserName}|{key}")))[..16];
+}
+
+/// <summary>
+/// 讓某種視窗只開一個：第一個程式持有具名 Mutex 並等待通知；
+/// 之後再啟動的程式只發通知請它跳到最前面，然後結束。
+/// </summary>
+sealed class SingleWindow
+{
+    static SingleWindow? _current; // 整個程式執行期間都留著，Mutex 才不會被回收
+
+    readonly Mutex _mutex;
+    readonly EventWaitHandle _show;
+
+    SingleWindow(Mutex mutex, EventWaitHandle show) { _mutex = mutex; _show = show; }
+
+    /// <summary>回傳 null 代表已經有一個開著，已通知它跳到最前面。</summary>
+    public static SingleWindow? Claim(string key)
+    {
+        var name = Program.ObjectName(key);
+        var mutex = new Mutex(true, $@"Local\{name}", out bool first);
+        var show = new EventWaitHandle(false, EventResetMode.AutoReset, $@"Local\{name}-show");
+        if (!first)
+        {
+            AllowSetForegroundWindow(-1); // 讓已開著的那個可以搶到前景
+            show.Set();
+            show.Dispose();
+            mutex.Dispose();
+            return null;
+        }
+        return _current = new SingleWindow(mutex, show);
+    }
+
+    public void BringToFrontOnSignal(Window w)
+    {
+        new Thread(() =>
+        {
+            while (_show.WaitOne())
+                w.Dispatcher.BeginInvoke(() =>
+                {
+                    if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+                    w.Activate();
+                    w.Topmost = true;
+                    w.Topmost = false;
+                });
+        }) { IsBackground = true }.Start();
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool AllowSetForegroundWindow(int processId);
 }
 
 static class Aggregator
@@ -94,8 +156,7 @@ static class Aggregator
     /// <summary>回傳 null 代表路徑已交給別的程式處理，自己可以結束。</summary>
     public static List<string>? Collect(string key, List<string> mine)
     {
-        var id = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes($"{Environment.UserName}|{key}")))[..16];
-        var name = $"MoveTidy-{id}";
+        var name = Program.ObjectName(key);
         var mutex = new Mutex(true, $@"Local\{name}", out bool first);
         if (!first)
         {
