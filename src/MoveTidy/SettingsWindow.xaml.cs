@@ -31,6 +31,17 @@ public partial class SettingsWindow : Window
         (_s.Order == NumberOrder.Modified ? OrderTime : OrderName).IsChecked = true;
         (_s.Digits switch { 1 => Dig1, 2 => Dig2, _ => Dig3 }).IsChecked = true;
         AutoClose.IsChecked = _s.AutoClose;
+        foreach (var fmt in AppSettings.DateFormats)
+        {
+            var rb = new RadioButton
+            {
+                Style = (Style)FindResource("Seg"), GroupName = "datefmt", Tag = fmt,
+                Content = AppSettings.FormatDate(fmt), FontFamily = (FontFamily)FindResource("Mono"),
+                IsChecked = fmt == _s.DateFormat || (fmt == AppSettings.DateFormats[0] && !AppSettings.DateFormats.Contains(_s.DateFormat)),
+            };
+            rb.Checked += DateFmt_Checked;
+            DateFmtBox.Children.Add(rb);
+        }
         (_s.Language == "cn" ? LangCn : LangTw).IsChecked = true;
 
         _ready = true;
@@ -105,6 +116,13 @@ public partial class SettingsWindow : Window
         _s.Order = OrderTime.IsChecked == true ? NumberOrder.Modified : NumberOrder.Name;
         _s.Digits = Dig1.IsChecked == true ? 1 : Dig2.IsChecked == true ? 2 : 3;
         _s.AutoClose = AutoClose.IsChecked == true;
+        Save(menuChanged: false);
+    }
+
+    void DateFmt_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        _s.DateFormat = (string)((RadioButton)sender).Tag;
         Save(menuChanged: false);
     }
 

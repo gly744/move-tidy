@@ -82,7 +82,7 @@ public static class Program
                     return 1;
                 }
                 var dest = settings.Favorites[fav].Path;
-                if (date) dest = Path.Combine(dest, AppSettings.TodayFolderName());
+                if (date) dest = Path.Combine(dest, settings.TodayFolderName());
                 var plan = NamePlanner.Plan(paths, dest, settings.QuickOptions);
                 return app.Run(new ProgressWindow(plan, dest, settings.AutoClose));
             case Kind.Pick:

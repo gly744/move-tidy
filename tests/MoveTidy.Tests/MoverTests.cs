@@ -90,6 +90,26 @@ public class MoverTests
         Assert.Contains("\"Number\"", File.ReadAllText(file));
     }
 
+    [Fact]
+    public void DateFolder_DefaultHasNoYear()
+    {
+        var d = new DateTime(2026, 3, 7);
+        Assert.Equal("03-07", new AppSettings().TodayFolderName(d));
+        Assert.Equal("0307", new AppSettings { DateFormat = "MMdd" }.TodayFolderName(d));
+        Assert.Equal("3月7日", new AppSettings { DateFormat = "M月d日" }.TodayFolderName(d));
+        Assert.Equal("2026-03-07", new AppSettings { DateFormat = "yyyy-MM-dd" }.TodayFolderName(d));
+        Assert.Equal("03-07", new AppSettings { DateFormat = "亂寫的" }.TodayFolderName(d)); // 不認得就用預設
+    }
+
+    [Fact]
+    public void DateFolder_FormatIsSaved()
+    {
+        using var t = new TempDir();
+        var file = Path.Combine(t.Root, "settings.json");
+        new AppSettings { DateFormat = "M月d日" }.Save(file);
+        Assert.Equal("M月d日", AppSettings.Load(file).DateFormat);
+    }
+
     sealed class SyncProgress(List<int> sink) : IProgress<int>
     {
         public void Report(int value) => sink.Add(value);

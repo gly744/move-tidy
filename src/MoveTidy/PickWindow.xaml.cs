@@ -27,7 +27,7 @@ public partial class PickWindow : Window
         DateBox.IsChecked = _s.PickDateFolder;
         (_s.PickMode == NamingMode.Number ? NumRadio : KeepRadio).IsChecked = true;
         (_s.PickOrder == NumberOrder.Modified ? ByTime : ByName).IsChecked = true;
-        DateText.Text = AppSettings.TodayFolderName();
+        DateText.Text = _s.TodayFolderName();
 
         foreach (var f in _s.Favorites)
         {
@@ -41,7 +41,7 @@ public partial class PickWindow : Window
         Refresh();
     }
 
-    string? Dest => _base is null ? null : DateBox.IsChecked == true ? Path.Combine(_base, AppSettings.TodayFolderName()) : _base;
+    string? Dest => _base is null ? null : DateBox.IsChecked == true ? Path.Combine(_base, _s.TodayFolderName()) : _base;
 
     PlanOptions Options => new(NumRadio.IsChecked == true ? NamingMode.Number : NamingMode.Keep,
                                ByTime.IsChecked == true ? NumberOrder.Modified : NumberOrder.Name,
@@ -71,7 +71,7 @@ public partial class PickWindow : Window
         PathBox.Inlines.Add(new System.Windows.Documents.Run(ShortPath(NamePlanner.Normalize(_base))));
         PathBox.ToolTip = Dest;
         if (DateBox.IsChecked == true)
-            PathBox.Inlines.Add(new System.Windows.Documents.Run("\\" + AppSettings.TodayFolderName()) { Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold });
+            PathBox.Inlines.Add(new System.Windows.Documents.Run("\\" + _s.TodayFolderName()) { Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold });
 
         var plan = NamePlanner.Plan(_sources, Dest!, Options);
         Rows.ItemsSource = plan.Select((p, i) => Row.Of(p.Source, p.TargetName, p.IsDirectory, p.Renamed, p.Skip, i)).ToList();

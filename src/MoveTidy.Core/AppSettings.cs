@@ -21,6 +21,12 @@ public sealed class AppSettings
     public int Digits { get; set; } = 3;
     public bool AutoClose { get; set; } = true;
 
+    /// <summary>今天日期資料夾的名稱格式，只能是 <see cref="DateFormats"/> 其中之一。</summary>
+    public string DateFormat { get; set; } = DateFormats[0];
+
+    /// <summary>可選的日期資料夾格式：11-21、1121、11月21日、2026-11-21。</summary>
+    public static readonly string[] DateFormats = ["MM-dd", "MMdd", "M月d日", "yyyy-MM-dd"];
+
     /// <summary>"tw" 繁體、"cn" 簡體。</summary>
     public string Language { get; set; } = "tw";
 
@@ -67,5 +73,9 @@ public sealed class AppSettings
         File.Move(tmp, file, overwrite: true);
     }
 
-    public static string TodayFolderName(DateTime? now = null) => (now ?? DateTime.Now).ToString("yyyy-MM-dd");
+    /// <summary>今天日期資料夾的名字（格式不認得時用第一種）。</summary>
+    public string TodayFolderName(DateTime? now = null) => FormatDate(DateFormat, now);
+
+    public static string FormatDate(string format, DateTime? now = null) =>
+        (now ?? DateTime.Now).ToString(DateFormats.Contains(format) ? format : DateFormats[0], System.Globalization.CultureInfo.InvariantCulture);
 }
