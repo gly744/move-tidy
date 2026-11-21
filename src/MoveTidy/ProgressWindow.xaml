@@ -49,7 +49,8 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
       <StackPanel x:Name="Buttons" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0" Visibility="Collapsed">
-        <Button Content="{local:T open_folder}" Click="Open_Click" Margin="0,0,8,0"/>
+        <Button x:Name="UndoBtn" Content="{local:T undo}" Click="Undo_Click" Margin="0,0,8,0"/>
+        <Button x:Name="OpenBtn" Content="{local:T open_folder}" Click="Open_Click" Margin="0,0,8,0"/>
         <Button Content="{local:T close}" Style="{StaticResource PriBtn}" Click="Close_Click"/>
       </StackPanel>
     </StackPanel>

@@ -9,6 +9,10 @@ public sealed class MoveResult
     public int Renamed { get; set; }
     public int Skipped { get; set; }
     public List<MoveFailure> Failures { get; } = [];
+    /// <summary>實際搬成功的每一項（給撤回用）。</summary>
+    public List<MoveRecord> Records { get; } = [];
+    /// <summary>目的地資料夾是這次才建立的。</summary>
+    public bool CreatedDest { get; set; }
 }
 
 /// <summary>依照 <see cref="NamePlanner"/> 的計畫實際搬移。</summary>
@@ -18,6 +22,7 @@ public static class Mover
     {
         var result = new MoveResult();
         destDir = NamePlanner.Normalize(destDir);
+        result.CreatedDest = !Directory.Exists(destDir);
         Directory.CreateDirectory(destDir);
         int done = 0;
         foreach (var item in plan)
@@ -40,9 +45,9 @@ public static class Mover
                     targetName = NamePlanner.UniqueKeepName(targetName, item.IsDirectory, taken);
                     target = Path.Combine(destDir, targetName);
                 }
-                if (item.IsDirectory) MoveDirectory(item.Source, target);
-                else File.Move(item.Source, target, overwrite: false);
+                MoveOne(item.Source, target, item.IsDirectory);
                 result.Moved++;
+                result.Records.Add(new(item.Source, target, item.IsDirectory));
                 if (!string.Equals(targetName, item.OriginalName, StringComparison.OrdinalIgnoreCase)) result.Renamed++;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -52,6 +57,13 @@ public static class Mover
             progress?.Report(++done);
         }
         return result;
+    }
+
+    /// <summary>搬一個項目（資料夾跨磁碟時先複製再刪除）。</summary>
+    public static void MoveOne(string source, string target, bool isDirectory)
+    {
+        if (isDirectory) MoveDirectory(source, target);
+        else File.Move(source, target, overwrite: false);
     }
 
     static void MoveDirectory(string source, string target)

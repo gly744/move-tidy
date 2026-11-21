@@ -56,7 +56,8 @@ public static class ContextMenuInstaller
                     Add(shell, order++, L.F("menu_to_date", f.Name), $"\"{exe}\" --quick {i} --date \"%1\"", false);
             }
             Add(shell, 90, L.Get("menu_other"), $"\"{exe}\" --pick \"%1\"", s.Favorites.Count > 0);
-            Add(shell, 91, L.Get("menu_settings"), $"\"{exe}\"", false);
+            Add(shell, 91, L.Get("menu_undo"), $"\"{exe}\" --undo", true);
+            Add(shell, 92, L.Get("menu_settings"), $"\"{exe}\"", false);
         }
 
         // 資料夾空白處：把這裡的項目移到今天日期資料夾
@@ -67,7 +68,8 @@ public static class ContextMenuInstaller
             bg.SetValue("Icon", $"\"{exe}\",0");
             using var shell = bg.CreateSubKey("shell");
             Add(shell, 0, L.Get("menu_tidy"), $"\"{exe}\" --tidy \"%V\"", false);
-            Add(shell, 91, L.Get("menu_settings"), $"\"{exe}\"", true);
+            Add(shell, 91, L.Get("menu_undo"), $"\"{exe}\" --undo", true);
+            Add(shell, 92, L.Get("menu_settings"), $"\"{exe}\"", false);
         }
         NotifyExplorer();
     }

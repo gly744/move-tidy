@@ -15,12 +15,13 @@ namespace MoveTidy;
 ///   MoveTidy.exe --quick 0 --date "路徑" 移到第 1 個常用目的地\今天日期
 ///   MoveTidy.exe --pick "路徑"           打開「移到其他位置…」視窗
 ///   MoveTidy.exe --tidy "資料夾"         把資料夾裡的項目移到「資料夾\今天日期」（空白處右鍵）
+///   MoveTidy.exe --undo                  撤回上一次移動
 ///   MoveTidy.exe --install-menu          安裝（或更新）右鍵選單
 ///   MoveTidy.exe --uninstall-menu        移除右鍵選單
 /// </summary>
 public static class Program
 {
-    enum Kind { Settings, Quick, Pick, Tidy }
+    enum Kind { Settings, Quick, Pick, Tidy, Undo }
 
     [STAThread]
     public static int Main(string[] args)
@@ -48,6 +49,7 @@ public static class Program
                 case "--date": date = true; break;
                 case "--pick": kind = Kind.Pick; break;
                 case "--tidy": kind = Kind.Tidy; break;
+                case "--undo": kind = Kind.Undo; break;
                 default: paths.Add(args[i]); break;
             }
         }
@@ -57,6 +59,12 @@ public static class Program
         if (kind == Kind.Settings)
         {
             single = SingleWindow.Claim($"Settings|{AppSettings.DataDir}");
+            if (single is null) return 0;
+        }
+        else if (kind == Kind.Undo)
+        {
+            // 選了很多項目再點「撤回」也會啟動很多次，只讓第一個做
+            single = SingleWindow.Claim($"Undo|{AppSettings.DataDir}");
             if (single is null) return 0;
         }
         else if (kind == Kind.Tidy)
@@ -102,6 +110,8 @@ public static class Program
                 return app.Run(new PickWindow(settings, paths));
             case Kind.Tidy:
                 return RunTidy(app, settings, NamePlanner.Normalize(paths[0]));
+            case Kind.Undo:
+                return RunUndo(app, settings);
             default:
                 var win = new SettingsWindow(settings);
                 single!.BringToFrontOnSignal(win);
@@ -123,6 +133,20 @@ public static class Program
         if (MessageBox.Show(ask, L.Get("app"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return 0;
         var plan = NamePlanner.Plan(items, dest, settings.QuickOptions);
         return app.Run(new ProgressWindow(plan, dest, settings.AutoClose));
+    }
+
+    /// <summary>撤回上一次移動：先問一次，再顯示進度。</summary>
+    static int RunUndo(App app, AppSettings settings)
+    {
+        var batch = MoveHistory.Last();
+        if (batch is null)
+        {
+            MessageBox.Show(L.Get("undo_none"), L.Get("app"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return 0;
+        }
+        var ask = L.F("undo_confirm", batch.Time.ToString("MM-dd HH:mm"), batch.Items.Count, batch.Dest);
+        if (MessageBox.Show(ask, L.Get("app"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return 0;
+        return app.Run(new ProgressWindow(batch, settings.AutoClose));
     }
 
     /// <summary>把任意字串轉成可當作系統物件名稱的短名字（同一個使用者同一個 key 得到同一個名字）。</summary>
