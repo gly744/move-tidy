@@ -24,6 +24,9 @@ public sealed class AppSettings
     /// <summary>今天日期資料夾的名稱格式，只能是 <see cref="DateFormats"/> 其中之一。</summary>
     public string DateFormat { get; set; } = DateFormats[0];
 
+    /// <summary>空白處「把這裡的項目移到今天日期資料夾」時，資料夾也一起搬（日期資料夾除外）。</summary>
+    public bool TidyIncludeFolders { get; set; } = true;
+
     /// <summary>可選的日期資料夾格式：11-21、1121、11月21日、2026-11-21。</summary>
     public static readonly string[] DateFormats = ["MM-dd", "MMdd", "M月d日", "yyyy-MM-dd"];
 

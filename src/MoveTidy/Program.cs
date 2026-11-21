@@ -14,12 +14,13 @@ namespace MoveTidy;
 ///   MoveTidy.exe --quick 0 "路徑"        移到第 1 個常用目的地
 ///   MoveTidy.exe --quick 0 --date "路徑" 移到第 1 個常用目的地\今天日期
 ///   MoveTidy.exe --pick "路徑"           打開「移到其他位置…」視窗
+///   MoveTidy.exe --tidy "資料夾"         把資料夾裡的項目移到「資料夾\今天日期」（空白處右鍵）
 ///   MoveTidy.exe --install-menu          安裝（或更新）右鍵選單
 ///   MoveTidy.exe --uninstall-menu        移除右鍵選單
 /// </summary>
 public static class Program
 {
-    enum Kind { Settings, Quick, Pick }
+    enum Kind { Settings, Quick, Pick, Tidy }
 
     [STAThread]
     public static int Main(string[] args)
@@ -46,6 +47,7 @@ public static class Program
                     kind = Kind.Quick; fav = n; i++; break;
                 case "--date": date = true; break;
                 case "--pick": kind = Kind.Pick; break;
+                case "--tidy": kind = Kind.Tidy; break;
                 default: paths.Add(args[i]); break;
             }
         }
@@ -55,6 +57,17 @@ public static class Program
         if (kind == Kind.Settings)
         {
             single = SingleWindow.Claim($"Settings|{AppSettings.DataDir}");
+            if (single is null) return 0;
+        }
+        else if (kind == Kind.Tidy)
+        {
+            // 同一個資料夾正在整理時，重複點選單不再開第二次
+            if (paths is not [var raw]) return 0;
+            var folder = raw.Trim('"');                          // 磁碟根目錄 "D:\" 會傳成 D:\" 
+            if (folder.EndsWith(':')) folder += "\\";
+            if (!Directory.Exists(folder)) return 0;
+            paths = [folder];
+            single = SingleWindow.Claim($"Tidy|{NamePlanner.Normalize(folder)}");
             if (single is null) return 0;
         }
         else
@@ -87,11 +100,29 @@ public static class Program
                 return app.Run(new ProgressWindow(plan, dest, settings.AutoClose));
             case Kind.Pick:
                 return app.Run(new PickWindow(settings, paths));
+            case Kind.Tidy:
+                return RunTidy(app, settings, NamePlanner.Normalize(paths[0]));
             default:
                 var win = new SettingsWindow(settings);
                 single!.BringToFrontOnSignal(win);
                 return app.Run(win);
         }
+    }
+
+    /// <summary>把資料夾裡的項目移到「資料夾\今天日期」：先問一次，再顯示進度。</summary>
+    static int RunTidy(App app, AppSettings settings, string folder)
+    {
+        var items = FolderTidy.Collect(folder, settings.TidyIncludeFolders);
+        var dest = Path.Combine(folder, settings.TodayFolderName());
+        if (items.Count == 0)
+        {
+            MessageBox.Show(L.Get("tidy_nothing"), L.Get("app"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return 0;
+        }
+        var ask = L.F("tidy_confirm", Path.GetFileName(folder), items.Count, Path.GetFileName(dest));
+        if (MessageBox.Show(ask, L.Get("app"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return 0;
+        var plan = NamePlanner.Plan(items, dest, settings.QuickOptions);
+        return app.Run(new ProgressWindow(plan, dest, settings.AutoClose));
     }
 
     /// <summary>把任意字串轉成可當作系統物件名稱的短名字（同一個使用者同一個 key 得到同一個名字）。</summary>

@@ -11,6 +11,7 @@ public static class ContextMenuInstaller
 {
     const string Verb = "MoveTidy";
     static readonly string[] Targets = [@"Software\Classes\*\shell\" + Verb, @"Software\Classes\Directory\shell\" + Verb];
+    const string Background = @"Software\Classes\Directory\Background\shell\" + Verb;
 
     public static bool IsInstalled
     {
@@ -57,6 +58,17 @@ public static class ContextMenuInstaller
             Add(shell, 90, L.Get("menu_other"), $"\"{exe}\" --pick \"%1\"", s.Favorites.Count > 0);
             Add(shell, 91, L.Get("menu_settings"), $"\"{exe}\"", false);
         }
+
+        // 資料夾空白處：把這裡的項目移到今天日期資料夾
+        using (var bg = Registry.CurrentUser.CreateSubKey(Background))
+        {
+            bg.SetValue("MUIVerb", L.Get("app"));
+            bg.SetValue("SubCommands", "");
+            bg.SetValue("Icon", $"\"{exe}\",0");
+            using var shell = bg.CreateSubKey("shell");
+            Add(shell, 0, L.Get("menu_tidy"), $"\"{exe}\" --tidy \"%V\"", false);
+            Add(shell, 91, L.Get("menu_settings"), $"\"{exe}\"", true);
+        }
         NotifyExplorer();
     }
 
@@ -78,7 +90,7 @@ public static class ContextMenuInstaller
 
     public static void Uninstall()
     {
-        foreach (var target in Targets)
+        foreach (var target in Targets.Append(Background))
             Registry.CurrentUser.DeleteSubKeyTree(target, throwOnMissingSubKey: false);
         NotifyExplorer();
     }

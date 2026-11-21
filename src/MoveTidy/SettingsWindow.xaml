@@ -112,6 +112,15 @@
           <Border Style="{StaticResource SegBox}" HorizontalAlignment="Left">
             <StackPanel x:Name="DateFmtBox" Orientation="Horizontal"/>
           </Border>
+
+          <TextBlock Text="{local:T tidy_sec}" Style="{StaticResource H2}" Margin="0,22,0,4"/>
+          <TextBlock Text="{local:T tidy_sec_d}" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <Border Style="{StaticResource CardBorder}">
+            <DockPanel Margin="14,12">
+              <TextBlock Text="{local:T tidy_folders}" VerticalAlignment="Center"/>
+              <CheckBox x:Name="TidyFolders" Style="{StaticResource Switch}" HorizontalAlignment="Right" Checked="Opt_Changed" Unchecked="Opt_Changed"/>
+            </DockPanel>
+          </Border>
         </StackPanel>
 
         <!-- 右鍵選單 -->

@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window
         (_s.Order == NumberOrder.Modified ? OrderTime : OrderName).IsChecked = true;
         (_s.Digits switch { 1 => Dig1, 2 => Dig2, _ => Dig3 }).IsChecked = true;
         AutoClose.IsChecked = _s.AutoClose;
+        TidyFolders.IsChecked = _s.TidyIncludeFolders;
         foreach (var fmt in AppSettings.DateFormats)
         {
             var rb = new RadioButton
@@ -116,6 +117,7 @@ public partial class SettingsWindow : Window
         _s.Order = OrderTime.IsChecked == true ? NumberOrder.Modified : NumberOrder.Name;
         _s.Digits = Dig1.IsChecked == true ? 1 : Dig2.IsChecked == true ? 2 : 3;
         _s.AutoClose = AutoClose.IsChecked == true;
+        _s.TidyIncludeFolders = TidyFolders.IsChecked == true;
         Save(menuChanged: false);
     }
 
