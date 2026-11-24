@@ -98,7 +98,7 @@ public partial class ProgressWindow : Window
             _error = ex.Message;
         }
         SetBar(Total);
-        Finish(ok: _error is null && _result!.Failures.Count == 0, canUndo: _batch is { Items.Count: > 0 });
+        Finish(ok: _error is null && _result!.Failures.Count == 0 && _result.Leftovers.Count == 0, canUndo: _batch is { Items.Count: > 0 });
     }
 
     async Task RunUndo()
@@ -123,7 +123,7 @@ public partial class ProgressWindow : Window
             _error = ex.Message;
         }
         SetBar(Total);
-        Finish(ok: _error is null && _undo!.Failures.Count == 0 && _undo.Missing.Count == 0, canUndo: false);
+        Finish(ok: _error is null && _undo!.Failures.Count == 0 && _undo.Missing.Count == 0 && _undo.Leftovers.Count == 0, canUndo: false);
     }
 
     void Finish(bool ok, bool canUndo)
@@ -159,6 +159,7 @@ public partial class ProgressWindow : Window
         }
 
         int failed;
+        var left = (_undoing ? _undo?.Leftovers : _result?.Leftovers) ?? [];
         var parts = new List<string>();
         List<object> fails;
         if (_undoing)
@@ -187,9 +188,14 @@ public partial class ProgressWindow : Window
             var (good, bad) = _op switch { Op.Rename => ("rn_done", "rn_fail"), Op.Copy => ("copy_done", "copy_fail"), _ => ("done", "done_fail") };
             TitleText.Text = failed == 0 ? L.Get(good) : L.F(bad, failed);
         }
+        if (left.Count > 0)
+        {
+            parts.Add(L.F("leftover_n", left.Count));
+            fails.AddRange(left.Select(x => new { Name = Path.GetFileName(x.Source), Message = L.F("leftover", x.Left) }));
+        }
         if (_error is not null) fails = [new { Name = _dest, Message = _error }];
 
-        bool ok = failed == 0;
+        bool ok = failed == 0 && left.Count == 0;
         StatusIcon.Text = !ok ? "" : _undoing ? "" : ""; // 警告 / 撤回 / 打勾
         StatusIcon.Foreground = (System.Windows.Media.Brush)FindResource(ok ? "Accent" : "WarnFg");
         IconBox.Background = (System.Windows.Media.Brush)FindResource(ok ? "AccentSoft" : "WarnBg");

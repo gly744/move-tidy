@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace MoveTidy.Core;
@@ -25,7 +23,6 @@ public sealed class MoveBatch
 
 /// <summary>
 /// 最近幾次移動的紀錄，存在設定資料夾的 history.json。
-/// 好幾個程式可能同時讀寫（右鍵連點），用具名 Mutex 排隊。
 /// </summary>
 public static class MoveHistory
 {
@@ -57,10 +54,7 @@ public static class MoveHistory
     static void Update(string? file, Action<List<MoveBatch>> change, bool save = true)
     {
         file ??= DefaultFile;
-        using var mutex = new Mutex(false, @"Local\MoveTidy-history-" +
-            Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(file.ToLowerInvariant())))[..16]);
-        try { mutex.WaitOne(5000); } catch (AbandonedMutexException) { }
-        try
+        FileLock.Run(file, () =>
         {
             var list = Read(file);
             change(list);
@@ -69,8 +63,7 @@ public static class MoveHistory
             var tmp = file + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(list, Json));
             File.Move(tmp, file, overwrite: true);
-        }
-        finally { try { mutex.ReleaseMutex(); } catch (ApplicationException) { } }
+        });
     }
 
     static List<MoveBatch> Read(string file)
@@ -96,6 +89,8 @@ public sealed class UndoResult
     /// <summary>搬過去之後又被移走或刪掉，找不到的項目。</summary>
     public List<string> Missing { get; } = [];
     public List<MoveFailure> Failures { get; } = [];
+    /// <summary>已經放回原處，但搬過去的那邊有東西刪不掉：路徑 → 殘留所在的資料夾。</summary>
+    public List<(string Source, string Left)> Leftovers { get; } = [];
 }
 
 /// <summary>把一次移動倒回去：每個項目放回原資料夾、改回原名。</summary>
@@ -125,13 +120,14 @@ public static class Undoer
                     name = NamePlanner.UniqueKeepName(name, rec.IsDirectory, NamePlanner.NamesIn(folder));
                     result.Renamed++;
                 }
-                Mover.MoveOne(chain.Take(rec.To), Path.Combine(folder, name), rec.IsDirectory);
+                if (Mover.MoveOne(chain.Take(rec.To), Path.Combine(folder, name), rec.IsDirectory) is { } left)
+                    result.Leftovers.Add((rec.To, left));
                 result.Restored++;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 chain.PutBack(rec.To, rec.IsDirectory);
-                result.Failures.Add(new(rec.To, ex.Message, ex is UnauthorizedAccessException ? 5 : ex.HResult & 0xFFFF));
+                result.Failures.Add(MoveFailure.From(rec.To, ex));
             }
             finally { progress?.Report(++done); }
         }

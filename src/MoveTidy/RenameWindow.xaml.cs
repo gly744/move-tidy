@@ -59,8 +59,7 @@ public partial class RenameWindow : Window
     {
         if (Picker.Selected == RenameStyle.PrefixNumber)
         {
-            _s.RenamePrefix = PrefixBox.Text.Trim();
-            try { _s.Save(); } catch (IOException) { }
+            try { AppSettings.Update(s => s.RenamePrefix = PrefixBox.Text.Trim()); } catch (IOException) { }
         }
         ProgressWindow.Rename(_plan, _s.AutoClose).Show(); // 用畫面上看到的這份名字
         Close();

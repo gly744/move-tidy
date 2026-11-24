@@ -102,11 +102,17 @@ public partial class PickWindow : Window
     {
         if (Dest is not { } dest) return;
         var options = Options;
-        _s.PickLastPath = _base;
-        _s.PickDateFolder = DateBox.IsChecked == true;
-        _s.PickMode = options.Mode;
-        _s.PickOrder = options.Order;
-        try { _s.Save(); } catch (IOException) { }
+        try
+        {
+            AppSettings.Update(s =>
+            {
+                s.PickLastPath = _base;
+                s.PickDateFolder = DateBox.IsChecked == true;
+                s.PickMode = options.Mode;
+                s.PickOrder = options.Order;
+            });
+        }
+        catch (IOException) { }
 
         var plan = NamePlanner.Plan(_sources, dest, options);
         new ProgressWindow(plan, dest, _s.AutoClose).Show();

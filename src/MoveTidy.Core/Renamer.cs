@@ -155,7 +155,7 @@ public static class Renamer
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 chain.PutBack(item.Source, item.IsDirectory);
-                result.Failures.Add(new(item.Source, ex.Message, ex is UnauthorizedAccessException ? 5 : ex.HResult & 0xFFFF));
+                result.Failures.Add(MoveFailure.From(item.Source, ex));
             }
             progress?.Report(++done);
         }
@@ -181,7 +181,7 @@ sealed class NameChain
     public void MakeRoom(string target)
     {
         if (!_waiting.TryGetValue(target, out bool dir) || _parked.ContainsKey(target) || !Path.Exists(target)) return;
-        var temp = Path.Combine(Path.GetDirectoryName(target)!, $"~mt-{Guid.NewGuid():N}{(dir ? "" : Path.GetExtension(target))}");
+        var temp = Mover.TempName(target) + (dir ? "" : Path.GetExtension(target));
         Mover.MoveOne(target, temp, dir);
         _parked[target] = temp;
     }

@@ -48,12 +48,11 @@ public static class ContextMenuInstaller
             root.SetValue("Icon", $"\"{exe}\",0");
             using var shell = root.CreateSubKey("shell");
             int order = 0;
-            for (int i = 0; i < s.Favorites.Count; i++)
+            foreach (var f in s.Favorites)
             {
-                var f = s.Favorites[i];
-                Add(shell, order++, L.F("menu_to", f.Name), $"\"{exe}\" --quick {i} \"%1\"", false);
+                Add(shell, order++, L.F("menu_to", f.Name), $"\"{exe}\" --fav {f.Id} \"%1\"", false);
                 if (f.ShowDateEntry)
-                    Add(shell, order++, L.F("menu_to_date", f.Name), $"\"{exe}\" --quick {i} --date \"%1\"", false);
+                    Add(shell, order++, L.F("menu_to_date", f.Name), $"\"{exe}\" --fav {f.Id} --date \"%1\"", false);
             }
             Add(shell, 90, L.Get("menu_other"), $"\"{exe}\" --pick \"%1\"", s.Favorites.Count > 0);
             Add(shell, 91, L.Get("menu_rename"), $"\"{exe}\" --rename \"%1\"", false);

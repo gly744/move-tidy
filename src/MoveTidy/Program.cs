@@ -11,8 +11,9 @@ namespace MoveTidy;
 /// <summary>
 /// 指令格式（右鍵選單會這樣呼叫）：
 ///   MoveTidy.exe                         打開設定
-///   MoveTidy.exe --quick 0 "路徑"        移到第 1 個常用目的地
-///   MoveTidy.exe --quick 0 --date "路徑" 移到第 1 個常用目的地\今天日期
+///   MoveTidy.exe --fav ID "路徑"         移到常用目的地（ID 見 Favorite.Id）
+///   MoveTidy.exe --fav ID --date "路徑"  移到常用目的地\今天日期
+///   MoveTidy.exe --quick 0 "路徑"        beta.4 以前的選單（只認第幾個，可能搬錯地方）：不搬，請使用者更新選單
 ///   MoveTidy.exe --pick "路徑"           打開「移到其他位置…」視窗
 ///   MoveTidy.exe --rename "路徑"         自動改名（樣式在設定裡選）
 ///   MoveTidy.exe --paste "資料夾"        把剪下／複製的檔案貼到這個資料夾，重名自動改名（空白處右鍵）
@@ -23,7 +24,7 @@ namespace MoveTidy;
 /// </summary>
 public static class Program
 {
-    enum Kind { Settings, Quick, Pick, Rename, Paste, Tidy, Undo }
+    enum Kind { Settings, Quick, OldMenu, Pick, Rename, Paste, Tidy, Undo }
 
     [STAThread]
     public static int Main(string[] args)
@@ -39,15 +40,15 @@ public static class Program
         }
 
         var kind = Kind.Settings;
-        int fav = -1;
+        string fav = "";
         bool date = false;
         var paths = new List<string>();
         for (int i = 0; i < args.Length; i++)
         {
             switch (args[i])
             {
-                case "--quick" when i + 1 < args.Length && int.TryParse(args[i + 1], out var n):
-                    kind = Kind.Quick; fav = n; i++; break;
+                case "--fav" when i + 1 < args.Length: kind = Kind.Quick; fav = args[++i]; break;
+                case "--quick" when i + 1 < args.Length: kind = Kind.OldMenu; i++; break;
                 case "--date": date = true; break;
                 case "--pick": kind = Kind.Pick; break;
                 case "--rename": kind = Kind.Rename; break;
@@ -101,15 +102,22 @@ public static class Program
         switch (kind)
         {
             case Kind.Quick:
-                if (fav < 0 || fav >= settings.Favorites.Count || string.IsNullOrWhiteSpace(settings.Favorites[fav].Path))
+                if (settings.FindFavorite(fav) is not { } to || string.IsNullOrWhiteSpace(to.Path))
                 {
                     MessageBox.Show(L.Get("fav_missing"), L.Get("app"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return 1;
                 }
-                var dest = settings.Favorites[fav].Path;
+                var dest = to.Path;
                 if (date) dest = Path.Combine(dest, settings.TodayFolderName());
                 var plan = NamePlanner.Plan(paths, dest, settings.QuickOptions);
                 return app.Run(new ProgressWindow(plan, dest, settings.AutoClose));
+            case Kind.OldMenu:
+                if (MessageBox.Show(L.Get("menu_old"), L.Get("app"), MessageBoxButton.OKCancel, MessageBoxImage.Information) == MessageBoxResult.OK)
+                {
+                    ContextMenuInstaller.Install(settings);
+                    MessageBox.Show(L.Get("menu_updated"), L.Get("app"), MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                return 0;
             case Kind.Pick:
                 return app.Run(new PickWindow(settings, paths));
             case Kind.Rename:

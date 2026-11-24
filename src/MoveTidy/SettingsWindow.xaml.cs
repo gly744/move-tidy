@@ -12,7 +12,7 @@ namespace MoveTidy;
 
 public partial class SettingsWindow : Window
 {
-    readonly AppSettings _s;
+    AppSettings _s;
     readonly ObservableCollection<FavItem> _favs = [];
     bool _ready;
 
@@ -33,7 +33,7 @@ public partial class SettingsWindow : Window
         AutoClose.IsChecked = _s.AutoClose;
         TidyFolders.IsChecked = _s.TidyIncludeFolders;
         RenamePicker.Selected = _s.RenameStyle;
-        RenamePicker.Changed += () => { _s.RenameStyle = RenamePicker.Selected; Save(menuChanged: false); };
+        RenamePicker.Changed += () => Save(s => s.RenameStyle = RenamePicker.Selected);
         RenameAsk.IsChecked = _s.RenameAsk;
         foreach (var fmt in AppSettings.DateFormats)
         {
@@ -109,38 +109,38 @@ public partial class SettingsWindow : Window
 
     void SaveFavorites()
     {
-        _s.Favorites = _favs.Select(f => f.ToFavorite()).ToList();
-        Save(menuChanged: true);
+        Save(s => s.Favorites = _favs.Select(f => f.ToFavorite()).ToList(), menuChanged: true);
     }
 
     // ── 命名規則 ──
     void Opt_Changed(object sender, RoutedEventArgs e)
     {
         if (!_ready) return;
-        _s.Mode = ModeNum.IsChecked == true ? NamingMode.Number : NamingMode.Keep;
-        _s.Order = OrderTime.IsChecked == true ? NumberOrder.Modified : NumberOrder.Name;
-        _s.Digits = Dig1.IsChecked == true ? 1 : Dig2.IsChecked == true ? 2 : 3;
-        _s.AutoClose = AutoClose.IsChecked == true;
-        _s.TidyIncludeFolders = TidyFolders.IsChecked == true;
-        _s.RenameAsk = RenameAsk.IsChecked == true;
-        Save(menuChanged: false);
+        Save(s =>
+        {
+            s.Mode = ModeNum.IsChecked == true ? NamingMode.Number : NamingMode.Keep;
+            s.Order = OrderTime.IsChecked == true ? NumberOrder.Modified : NumberOrder.Name;
+            s.Digits = Dig1.IsChecked == true ? 1 : Dig2.IsChecked == true ? 2 : 3;
+            s.AutoClose = AutoClose.IsChecked == true;
+            s.TidyIncludeFolders = TidyFolders.IsChecked == true;
+            s.RenameAsk = RenameAsk.IsChecked == true;
+        });
     }
 
     void DateFmt_Checked(object sender, RoutedEventArgs e)
     {
         if (!_ready) return;
-        _s.DateFormat = (string)((RadioButton)sender).Tag;
-        Save(menuChanged: false);
+        Save(s => s.DateFormat = (string)((RadioButton)sender).Tag);
     }
 
     // ── 語言 ──
     void Lang_Checked(object sender, RoutedEventArgs e)
     {
         if (!_ready) return;
-        _s.Language = (string)((RadioButton)sender).Tag;
-        L.I.Lang = _s.Language;
+        var lang = (string)((RadioButton)sender).Tag;
+        L.I.Lang = lang;
         ((App)Application.Current).ApplyLanguageFont();
-        Save(menuChanged: true);
+        Save(s => s.Language = lang, menuChanged: true);
         RefreshMenuStatus();
     }
 
@@ -171,10 +171,10 @@ public partial class SettingsWindow : Window
         RefreshMenuStatus();
     }
 
-    void Save(bool menuChanged)
+    void Save(Action<AppSettings> change, bool menuChanged = false)
     {
         if (!_ready) return;
-        try { _s.Save(); } catch (IOException) { }
+        try { _s = AppSettings.Update(change); } catch (IOException) { change(_s); }
         // 已安裝的選單跟著更新（只在指向這個程式時才改，避免動到別處安裝的版本）
         if (menuChanged && ContextMenuInstaller.IsInstalled &&
             string.Equals(ContextMenuInstaller.InstalledExe, ContextMenuInstaller.CurrentExe, StringComparison.OrdinalIgnoreCase))

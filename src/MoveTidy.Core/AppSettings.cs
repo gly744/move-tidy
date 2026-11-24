@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -7,6 +9,10 @@ public sealed class Favorite
 {
     public string Name { get; set; } = "";
     public string Path { get; set; } = "";
+    /// <summary>右鍵選單用來認這個目的地。由路徑算出來，調整順序或改名都不會變。</summary>
+    [JsonIgnore]
+    public string Id => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+        System.IO.Path.TrimEndingDirectorySeparator(Path).ToUpperInvariant())))[..12];
     /// <summary>右鍵選單是否也顯示「移到 X\今天日期」。</summary>
     public bool ShowDateEntry { get; set; } = true;
 }
@@ -80,6 +86,25 @@ public sealed class AppSettings
         catch (JsonException) { }
         return new();
     }
+
+    /// <summary>
+    /// 重新讀出目前的設定，只套用 <paramref name="change"/> 改的欄位再存，回傳存好的設定。
+    /// 視窗都用這個存，才不會把開視窗當時的舊設定整份寫回去。
+    /// </summary>
+    public static AppSettings Update(Action<AppSettings> change, string? file = null)
+    {
+        file ??= DefaultFile;
+        AppSettings s = new();
+        FileLock.Run(file, () =>
+        {
+            s = Load(file);
+            change(s);
+            s.Save(file);
+        });
+        return s;
+    }
+
+    public Favorite? FindFavorite(string id) => Favorites.FirstOrDefault(f => f.Id == id);
 
     public void Save(string? file = null)
     {
