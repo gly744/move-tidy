@@ -3,7 +3,14 @@ using System.Text.Json;
 namespace MoveTidy.Core;
 
 /// <summary>搬了一個項目：原本的完整路徑 → 搬過去後的完整路徑。</summary>
-public sealed record MoveRecord(string From, string To, bool IsDirectory);
+/// <param name="Stamp">搬完當時的特徵（<see cref="FileStamp"/>），撤回前用來確認還是同一個。舊版的紀錄沒有。</param>
+public sealed record MoveRecord(string From, string To, bool IsDirectory, string? Stamp = null)
+{
+    public static MoveRecord Of(string from, string to, bool isDirectory) => new(from, to, isDirectory, FileStamp.Of(to, isDirectory));
+
+    /// <summary>在 <paramref name="path"/> 的還是當初搬的那個，沒被換掉或編輯過。</summary>
+    public bool StillSame(string path) => Stamp is null || Stamp == FileStamp.Of(path, IsDirectory);
+}
 
 public enum BatchKind { Move, Rename }
 
@@ -35,14 +42,17 @@ public static class MoveHistory
         if (batch.Items.Count == 0) return;
         Update(file, list =>
         {
-            list.Add(batch);
-            if (list.Count > Keep) list.RemoveRange(0, list.Count - Keep);
+            if (list.Any(b => b.Id == batch.Id)) return;
+            // 依開始的時間排（意外中斷的會晚一點才併進來）
+            int at = list.FindLastIndex(b => b.Time <= batch.Time) + 1;
+            list.Insert(at, batch);
         });
     }
 
     /// <summary>最近一次還沒撤回的移動，沒有則為 null。</summary>
     public static MoveBatch? Last(string? file = null)
     {
+        MoveJournal.Recover(file);
         MoveBatch? last = null;
         Update(file, list => last = list.LastOrDefault(), save: false);
         return last;
@@ -58,12 +68,17 @@ public static class MoveHistory
         {
             var list = Read(file);
             change(list);
-            if (!save) return;
-            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            var tmp = file + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(list, Json));
-            File.Move(tmp, file, overwrite: true);
+            if (list.Count > Keep) list.RemoveRange(0, list.Count - Keep);
+            if (save) Write(file, list);
         });
+    }
+
+    static void Write(string file, List<MoveBatch> list)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        var tmp = file + ".tmp";
+        File.WriteAllText(tmp, JsonSerializer.Serialize(list, Json));
+        File.Move(tmp, file, overwrite: true);
     }
 
     static List<MoveBatch> Read(string file)
@@ -88,6 +103,8 @@ public sealed class UndoResult
     public int Renamed { get; set; }
     /// <summary>搬過去之後又被移走或刪掉，找不到的項目。</summary>
     public List<string> Missing { get; } = [];
+    /// <summary>搬過去之後被換成別的、或編輯過的項目，沒有動它。</summary>
+    public List<string> Changed { get; } = [];
     public List<MoveFailure> Failures { get; } = [];
     /// <summary>已經放回原處，但搬過去的那邊有東西刪不掉：路徑 → 殘留所在的資料夾。</summary>
     public List<(string Source, string Left)> Leftovers { get; } = [];
@@ -96,20 +113,29 @@ public sealed class UndoResult
 /// <summary>把一次移動倒回去：每個項目放回原資料夾、改回原名。</summary>
 public static class Undoer
 {
-    public static UndoResult Execute(MoveBatch batch, IProgress<int>? progress = null)
+    public static UndoResult Execute(MoveBatch batch, IProgress<int>? progress = null, MoveJournal? journal = null)
     {
         var result = new UndoResult();
         int done = 0;
-        var chain = new NameChain(batch.Items.Select(r => (r.To, r.IsDirectory)));
+        // 已經不是原來那個的，完全不碰（也不會叫它讓開）
+        var changed = batch.Items.Where(r => Path.Exists(r.To) && !r.StillSame(r.To)).ToHashSet();
+        var chain = new NameChain(batch.Items.Where(r => !changed.Contains(r)).Select(r => (r.To, r.IsDirectory)), journal);
         // 倒著做：如果同一批裡有東西依賴先前的步驟，倒序最安全
         for (int i = batch.Items.Count - 1; i >= 0; i--)
         {
             var rec = batch.Items[i];
             try
             {
+                if (changed.Contains(rec)) { result.Changed.Add(rec.To); continue; }
                 var now = chain.Where(rec.To);
                 bool there = rec.IsDirectory ? Directory.Exists(now) : File.Exists(now);
                 if (!there) { result.Missing.Add(rec.To); continue; }
+                if (!rec.StillSame(now))
+                {
+                    chain.PutBack(rec.To, rec.IsDirectory);
+                    result.Changed.Add(rec.To);
+                    continue;
+                }
 
                 var folder = Path.GetDirectoryName(rec.From)!;
                 Directory.CreateDirectory(folder);
@@ -120,7 +146,8 @@ public static class Undoer
                     name = NamePlanner.UniqueKeepName(name, rec.IsDirectory, NamePlanner.NamesIn(folder));
                     result.Renamed++;
                 }
-                if (Mover.MoveOne(chain.Take(rec.To), Path.Combine(folder, name), rec.IsDirectory) is { } left)
+                var (at, back) = (chain.Take(rec.To), Path.Combine(folder, name));
+                if (Mover.MoveOne(at, back, rec.IsDirectory, () => journal?.Moved(MoveRecord.Of(at, back, rec.IsDirectory)), note => journal?.Parking(note)) is { } left)
                     result.Leftovers.Add((rec.To, left));
                 result.Restored++;
             }

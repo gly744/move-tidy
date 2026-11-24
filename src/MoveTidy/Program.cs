@@ -93,6 +93,8 @@ public static class Program
             if (paths.Count == 0) return 0;
         }
 
+        MoveJournal.Recover(); // 上次意外中斷的先收拾好
+
         var settings = AppSettings.Load();
         var app = new App();
         app.InitializeComponent();

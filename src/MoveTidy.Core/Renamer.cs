@@ -118,7 +118,7 @@ public static class Renamer
     }
 
     /// <summary>照計畫改名。</summary>
-    public static MoveResult Execute(IReadOnlyList<PlannedItem> plan, IProgress<int>? progress = null)
+    public static MoveResult Execute(IReadOnlyList<PlannedItem> plan, IProgress<int>? progress = null, MoveJournal? journal = null)
     {
         var result = new MoveResult();
         int done = 0;
@@ -132,7 +132,7 @@ public static class Renamer
 
         // 資料夾和它裡面的檔案同時被選到時，先改裡面的
         todo = [.. todo.OrderByDescending(i => i.Source.Count(c => c == Path.DirectorySeparatorChar))];
-        var chain = new NameChain(todo.Select(i => (i.Source, i.IsDirectory)));
+        var chain = new NameChain(todo.Select(i => (i.Source, i.IsDirectory)), journal);
         foreach (var item in todo)
         {
             var folder = Path.GetDirectoryName(item.Source)!;
@@ -150,7 +150,9 @@ public static class Renamer
                 Mover.MoveOne(chain.Take(item.Source), target, item.IsDirectory);
                 result.Moved++;
                 result.Renamed++;
-                result.Records.Add(new(item.Source, target, item.IsDirectory));
+                var rec = MoveRecord.Of(item.Source, target, item.IsDirectory);
+                result.Records.Add(rec);
+                journal?.Moved(rec);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -172,8 +174,11 @@ sealed class NameChain
     readonly Dictionary<string, bool> _waiting = new(StringComparer.OrdinalIgnoreCase);   // 還沒輪到的路徑 → 是不是資料夾
     readonly Dictionary<string, string> _parked = new(StringComparer.OrdinalIgnoreCase);  // 原路徑 → 暫時的路徑
 
-    public NameChain(IEnumerable<(string path, bool dir)> items)
+    readonly MoveJournal? _journal;
+
+    public NameChain(IEnumerable<(string path, bool dir)> items, MoveJournal? journal)
     {
+        _journal = journal;
         foreach (var (path, dir) in items) _waiting[path] = dir;
     }
 
@@ -182,6 +187,7 @@ sealed class NameChain
     {
         if (!_waiting.TryGetValue(target, out bool dir) || _parked.ContainsKey(target) || !Path.Exists(target)) return;
         var temp = Mover.TempName(target) + (dir ? "" : Path.GetExtension(target));
+        _journal?.Parking(new(target, temp, dir));
         Mover.MoveOne(target, temp, dir);
         _parked[target] = temp;
     }

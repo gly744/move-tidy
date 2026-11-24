@@ -13,9 +13,7 @@ namespace MoveTidy;
 /// </summary>
 public partial class ProgressWindow : Window
 {
-    enum Op { Move, Copy, Rename }
-
-    readonly Op _op;
+    readonly MoveOp _op;
     readonly IReadOnlyList<PlannedItem>? _plan;
     readonly PasteClipboard? _clip;   // 「貼到這裡」用：搬完要清空剪貼簿
     readonly string _dest;
@@ -28,18 +26,19 @@ public partial class ProgressWindow : Window
     bool _undoing;                // 現在顯示的是撤回
     UndoResult? _undo;            // 撤回的結果
     string? _error;
+    bool _busy;                   // 正在動檔案
 
-    public ProgressWindow(IReadOnlyList<PlannedItem> plan, string dest, bool autoClose) : this(Op.Move, plan, dest, autoClose, null) { }
+    public ProgressWindow(IReadOnlyList<PlannedItem> plan, string dest, bool autoClose) : this(MoveOp.Move, plan, dest, autoClose, null) { }
 
     /// <summary>「貼到這裡」：剪下的就移動，複製的就複製。</summary>
     public static ProgressWindow Paste(IReadOnlyList<PlannedItem> plan, string dest, bool autoClose, PasteClipboard clip) =>
-        new(clip.Cut ? Op.Move : Op.Copy, plan, dest, autoClose, clip);
+        new(clip.Cut ? MoveOp.Move : MoveOp.Copy, plan, dest, autoClose, clip);
 
     /// <summary>「自動改名」：留在原資料夾，只換名字。</summary>
     public static ProgressWindow Rename(IReadOnlyList<PlannedItem> plan, bool autoClose) =>
-        new(Op.Rename, plan, Path.GetDirectoryName(plan[0].Source) ?? plan[0].Source, autoClose, null);
+        new(MoveOp.Rename, plan, Path.GetDirectoryName(plan[0].Source) ?? plan[0].Source, autoClose, null);
 
-    ProgressWindow(Op op, IReadOnlyList<PlannedItem> plan, string dest, bool autoClose, PasteClipboard? clip)
+    ProgressWindow(MoveOp op, IReadOnlyList<PlannedItem> plan, string dest, bool autoClose, PasteClipboard? clip)
     {
         InitializeComponent();
         _op = op;
@@ -54,7 +53,7 @@ public partial class ProgressWindow : Window
     public ProgressWindow(MoveBatch batch, bool autoClose)
     {
         InitializeComponent();
-        _op = batch.Kind == BatchKind.Rename ? Op.Rename : Op.Move;
+        _op = batch.Kind == BatchKind.Rename ? MoveOp.Rename : MoveOp.Move;
         _batch = batch;
         _dest = batch.Dest;
         _autoClose = autoClose;
@@ -86,17 +85,15 @@ public partial class ProgressWindow : Window
         var progress = new Progress<int>(SetBar);
         try
         {
-            _result = await Task.Run(() => _op == Op.Rename
-                ? Renamer.Execute(_plan!, progress)
-                : Mover.Execute(_plan!, _dest, progress, copy: _op == Op.Copy));
+            SetBusy(true);
+            (_result, _batch) = await Task.Run(() => MoveSession.Run(_plan!, _dest, _op, progress));
             if (_result.Failures.Count == 0 && _result.Moved > 0) _clip?.ClearIfUnchanged();
-            _batch = MoveBatch.From(_result, _dest, _op == Op.Rename ? BatchKind.Rename : BatchKind.Move);
-            try { MoveHistory.Add(_batch); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally { SetBusy(false); }
         SetBar(Total);
         Finish(ok: _error is null && _result!.Failures.Count == 0 && _result.Leftovers.Count == 0, canUndo: _batch is { Items.Count: > 0 });
     }
@@ -115,25 +112,48 @@ public partial class ProgressWindow : Window
         var progress = new Progress<int>(SetBar);
         try
         {
-            _undo = await Task.Run(() => Undoer.Execute(batch, progress));
-            try { MoveHistory.Remove(batch.Id); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            SetBusy(true);
+            _undo = await Task.Run(() => MoveSession.Undo(batch, progress));
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally { SetBusy(false); }
         SetBar(Total);
-        Finish(ok: _error is null && _undo!.Failures.Count == 0 && _undo.Missing.Count == 0 && _undo.Leftovers.Count == 0, canUndo: false);
+        Finish(ok: _error is null && _undo!.Failures.Count == 0 && _undo.Missing.Count == 0 && _undo.Changed.Count == 0 && _undo.Leftovers.Count == 0, canUndo: false);
     }
 
     void Finish(bool ok, bool canUndo)
     {
         UndoBtn.Visibility = canUndo ? Visibility.Visible : Visibility.Collapsed;
         // 改名和貼上時，使用者本來就在這個資料夾裡
-        OpenBtn.Visibility = _undoing || _op == Op.Rename || _clip is not null ? Visibility.Collapsed : Visibility.Visible;
+        OpenBtn.Visibility = _undoing || _op == MoveOp.Rename || _clip is not null ? Visibility.Collapsed : Visibility.Visible;
         Buttons.Visibility = Visibility.Visible;
         if (ok && _autoClose && !IsMouseOver) _timer.Start();
         Render();
+    }
+
+    /// <summary>正在搬的時候不能關窗，也請 Windows 先別登出或關機。</summary>
+    void SetBusy(bool busy)
+    {
+        if (_busy == busy) return;
+        _busy = busy;
+        CloseX.Visibility = busy ? Visibility.Hidden : Visibility.Visible;
+        if (busy) Application.Current.SessionEnding += OnSessionEnding;
+        else Application.Current.SessionEnding -= OnSessionEnding;
+    }
+
+    static void OnSessionEnding(object sender, SessionEndingCancelEventArgs e) => e.Cancel = true;
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (_busy)
+        {
+            e.Cancel = true;
+            LeftText.Text = L.Get("busy");
+        }
+        base.OnClosing(e);
     }
 
     void SetBar(int done)
@@ -144,7 +164,7 @@ public partial class ProgressWindow : Window
 
     void Render()
     {
-        bool rename = _op == Op.Rename;
+        bool rename = _op == MoveOp.Rename;
         PathText.Text = _undoing ? L.F(rename ? "rn_undo_path" : "undo_path", PickWindow.ShortPath(_dest, 30))
                       : (rename ? "" : "→ ") + PickWindow.ShortPath(_dest, 40);
         PathText.ToolTip = _dest;
@@ -152,7 +172,7 @@ public partial class ProgressWindow : Window
         if (running)
         {
             TitleText.Text = _undoing ? L.F("undoing", Total)
-                : L.F(_op switch { Op.Rename => "renaming", Op.Copy => "copying", _ => "moving" }, _plan!.Count(p => p.Skip == SkipReason.None));
+                : L.F(_op switch { MoveOp.Rename => "renaming", MoveOp.Copy => "copying", _ => "moving" }, _plan!.Count(p => p.Skip == SkipReason.None));
             LeftText.Text = "";
             RightText.Text = "";
             return;
@@ -164,11 +184,12 @@ public partial class ProgressWindow : Window
         List<object> fails;
         if (_undoing)
         {
-            failed = _error is not null ? Total : _undo!.Failures.Count + _undo.Missing.Count;
+            failed = _error is not null ? Total : _undo!.Failures.Count + _undo.Missing.Count + _undo.Changed.Count;
             if (_undo is not null)
             {
                 if (_undo.Renamed > 0) parts.Add(L.F("undo_renamed", _undo.Renamed));
                 fails = [.. _undo.Missing.Select(m => new { Name = Path.GetFileName(m), Message = L.Get("undo_missing") }),
+                         .. _undo.Changed.Select(m => new { Name = Path.GetFileName(m), Message = L.Get("undo_changed") }),
                          .. _undo.Failures.Select(f => new { Name = Path.GetFileName(f.Source), Message = Explain(f) })];
             }
             else fails = [];
@@ -185,7 +206,7 @@ public partial class ProgressWindow : Window
                 fails = [.. _result.Failures.Select(f => new { Name = Path.GetFileName(f.Source), Message = Explain(f) })];
             }
             else fails = [];
-            var (good, bad) = _op switch { Op.Rename => ("rn_done", "rn_fail"), Op.Copy => ("copy_done", "copy_fail"), _ => ("done", "done_fail") };
+            var (good, bad) = _op switch { MoveOp.Rename => ("rn_done", "rn_fail"), MoveOp.Copy => ("copy_done", "copy_fail"), _ => ("done", "done_fail") };
             TitleText.Text = failed == 0 ? L.Get(good) : L.F(bad, failed);
         }
         if (left.Count > 0)
@@ -209,6 +230,8 @@ public partial class ProgressWindow : Window
     /// <summary>常見錯誤換成中文說明，其他的保留系統原文。</summary>
     static string Explain(MoveFailure f) => f.Code switch
     {
+        MoveFailure.SourceChanged => L.Get("err_changed"),
+        MoveFailure.SourceRelocated => L.F("err_relocated", f.Message),
         32 or 33 => L.Get("err_in_use"),
         5 => L.Get("err_denied"),
         39 or 112 => L.Get("err_disk_full"),
