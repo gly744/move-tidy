@@ -14,14 +14,16 @@ namespace MoveTidy;
 ///   MoveTidy.exe --quick 0 "路徑"        移到第 1 個常用目的地
 ///   MoveTidy.exe --quick 0 --date "路徑" 移到第 1 個常用目的地\今天日期
 ///   MoveTidy.exe --pick "路徑"           打開「移到其他位置…」視窗
+///   MoveTidy.exe --rename "路徑"         自動改名（樣式在設定裡選）
+///   MoveTidy.exe --paste "資料夾"        把剪下／複製的檔案貼到這個資料夾，重名自動改名（空白處右鍵）
 ///   MoveTidy.exe --tidy "資料夾"         把資料夾裡的項目移到「資料夾\今天日期」（空白處右鍵）
-///   MoveTidy.exe --undo                  撤回上一次移動
+///   MoveTidy.exe --undo                  撤回上一次移動或改名
 ///   MoveTidy.exe --install-menu          安裝（或更新）右鍵選單
 ///   MoveTidy.exe --uninstall-menu        移除右鍵選單
 /// </summary>
 public static class Program
 {
-    enum Kind { Settings, Quick, Pick, Tidy, Undo }
+    enum Kind { Settings, Quick, Pick, Rename, Paste, Tidy, Undo }
 
     [STAThread]
     public static int Main(string[] args)
@@ -48,6 +50,8 @@ public static class Program
                     kind = Kind.Quick; fav = n; i++; break;
                 case "--date": date = true; break;
                 case "--pick": kind = Kind.Pick; break;
+                case "--rename": kind = Kind.Rename; break;
+                case "--paste": kind = Kind.Paste; break;
                 case "--tidy": kind = Kind.Tidy; break;
                 case "--undo": kind = Kind.Undo; break;
                 default: paths.Add(args[i]); break;
@@ -67,15 +71,15 @@ public static class Program
             single = SingleWindow.Claim($"Undo|{AppSettings.DataDir}");
             if (single is null) return 0;
         }
-        else if (kind == Kind.Tidy)
+        else if (kind is Kind.Tidy or Kind.Paste)
         {
-            // 同一個資料夾正在整理時，重複點選單不再開第二次
+            // 同一個資料夾正在整理（或貼上）時，重複點選單不再開第二次
             if (paths is not [var raw]) return 0;
             var folder = raw.Trim('"');                          // 磁碟根目錄 "D:\" 會傳成 D:\" 
             if (folder.EndsWith(':')) folder += "\\";
             if (!Directory.Exists(folder)) return 0;
             paths = [folder];
-            single = SingleWindow.Claim($"Tidy|{NamePlanner.Normalize(folder)}");
+            single = SingleWindow.Claim($"{kind}|{NamePlanner.Normalize(folder)}");
             if (single is null) return 0;
         }
         else
@@ -108,6 +112,11 @@ public static class Program
                 return app.Run(new ProgressWindow(plan, dest, settings.AutoClose));
             case Kind.Pick:
                 return app.Run(new PickWindow(settings, paths));
+            case Kind.Rename:
+                if (settings.RenameNeedsWindow) return app.Run(new RenameWindow(settings, paths));
+                return app.Run(ProgressWindow.Rename(Renamer.Plan(paths, settings.RenameOptions), settings.AutoClose));
+            case Kind.Paste:
+                return RunPaste(app, settings, NamePlanner.Normalize(paths[0]));
             case Kind.Tidy:
                 return RunTidy(app, settings, NamePlanner.Normalize(paths[0]));
             case Kind.Undo:
@@ -135,7 +144,21 @@ public static class Program
         return app.Run(new ProgressWindow(plan, dest, settings.AutoClose));
     }
 
-    /// <summary>撤回上一次移動：先問一次，再顯示進度。</summary>
+    /// <summary>把剪下（移動）或複製的檔案貼到這個資料夾：名字保留，重名的才加號碼。</summary>
+    static int RunPaste(App app, AppSettings settings, string folder)
+    {
+        var clip = PasteClipboard.Read();
+        var paths = clip?.Paths.Where(Path.Exists).ToList();
+        if (clip is null || paths!.Count == 0)
+        {
+            MessageBox.Show(L.Get(clip is null ? "paste_none" : "paste_gone"), L.Get("app"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return 0;
+        }
+        var plan = NamePlanner.Plan(paths, folder, new(Copy: !clip.Cut));
+        return app.Run(ProgressWindow.Paste(plan, folder, settings.AutoClose, clip));
+    }
+
+    /// <summary>撤回上一次移動或改名：先問一次，再顯示進度。</summary>
     static int RunUndo(App app, AppSettings settings)
     {
         var batch = MoveHistory.Last();
@@ -144,7 +167,7 @@ public static class Program
             MessageBox.Show(L.Get("undo_none"), L.Get("app"), MessageBoxButton.OK, MessageBoxImage.Information);
             return 0;
         }
-        var ask = L.F("undo_confirm", batch.Time.ToString("MM-dd HH:mm"), batch.Items.Count, batch.Dest);
+        var ask = L.F(batch.Kind == BatchKind.Rename ? "rn_undo_confirm" : "undo_confirm", batch.Time.ToString("MM-dd HH:mm"), batch.Items.Count, batch.Dest);
         if (MessageBox.Show(ask, L.Get("app"), MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return 0;
         return app.Run(new ProgressWindow(batch, settings.AutoClose));
     }

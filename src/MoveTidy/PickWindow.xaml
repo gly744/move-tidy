@@ -61,32 +61,10 @@
 
       <TextBlock Text="{local:T after}" Style="{StaticResource Lbl}" Margin="0,18,0,6"/>
       <Border Style="{StaticResource CardBorder}">
-        <ItemsControl x:Name="Rows" MaxHeight="260" Grid.IsSharedSizeScope="True">
+        <ItemsControl x:Name="Rows" MaxHeight="260" Grid.IsSharedSizeScope="True" ItemTemplate="{StaticResource PreviewRow}">
           <ItemsControl.Template>
             <ControlTemplate><ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter/></ScrollViewer></ControlTemplate>
           </ItemsControl.Template>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Border BorderBrush="{StaticResource Line}" BorderThickness="{Binding Separator}" Padding="12,0" MinHeight="32">
-                <Grid VerticalAlignment="Center">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="24"/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition Width="24"/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition Width="Auto" SharedSizeGroup="tag"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding Icon}" FontFamily="{StaticResource Icons}" Foreground="{StaticResource Muted}" FontSize="14" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="{Binding From}" Foreground="{StaticResource Muted}" FontFamily="{StaticResource Mono}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding From}" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="2" Text="→" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="3" Text="{Binding To}" FontFamily="{StaticResource Mono}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding To}" VerticalAlignment="Center" Opacity="{Binding ToOpacity}"/>
-                  <Border Grid.Column="4" Background="{Binding TagBg}" CornerRadius="9" Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="{Binding TagVisibility}">
-                    <TextBlock Text="{Binding Tag}" Foreground="{Binding TagFg}" FontSize="11"/>
-                  </Border>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
         </ItemsControl>
       </Border>
     </StackPanel>

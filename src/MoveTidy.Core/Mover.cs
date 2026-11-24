@@ -15,10 +15,11 @@ public sealed class MoveResult
     public bool CreatedDest { get; set; }
 }
 
-/// <summary>依照 <see cref="NamePlanner"/> 的計畫實際搬移。</summary>
+/// <summary>依照 <see cref="NamePlanner"/> 的計畫實際搬移（或複製）。</summary>
 public static class Mover
 {
-    public static MoveResult Execute(IReadOnlyList<PlannedItem> plan, string destDir, IProgress<int>? progress = null, CancellationToken ct = default)
+    /// <param name="copy">只複製，來源留著；不留撤回紀錄。</param>
+    public static MoveResult Execute(IReadOnlyList<PlannedItem> plan, string destDir, IProgress<int>? progress = null, CancellationToken ct = default, bool copy = false)
     {
         var result = new MoveResult();
         destDir = NamePlanner.Normalize(destDir);
@@ -41,13 +42,14 @@ public static class Mover
                 if (Path.Exists(target))
                 {
                     // 計畫之後目的地又多了同名項目：退回「名字 (n)」
-                    var taken = new HashSet<string>(Directory.EnumerateFileSystemEntries(destDir).Select(p => Path.GetFileName(p)!), StringComparer.OrdinalIgnoreCase);
-                    targetName = NamePlanner.UniqueKeepName(targetName, item.IsDirectory, taken);
+                    targetName = NamePlanner.UniqueKeepName(targetName, item.IsDirectory, NamePlanner.NamesIn(destDir));
                     target = Path.Combine(destDir, targetName);
                 }
-                MoveOne(item.Source, target, item.IsDirectory);
+                if (!copy) MoveOne(item.Source, target, item.IsDirectory);
+                else if (item.IsDirectory) CopyDirectory(item.Source, target);
+                else File.Copy(item.Source, target, overwrite: false);
                 result.Moved++;
-                result.Records.Add(new(item.Source, target, item.IsDirectory));
+                if (!copy) result.Records.Add(new(item.Source, target, item.IsDirectory));
                 if (!string.Equals(targetName, item.OriginalName, StringComparison.OrdinalIgnoreCase)) result.Renamed++;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

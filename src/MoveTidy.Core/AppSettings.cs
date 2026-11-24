@@ -27,6 +27,13 @@ public sealed class AppSettings
     /// <summary>空白處「把這裡的項目移到今天日期資料夾」時，資料夾也一起搬（日期資料夾除外）。</summary>
     public bool TidyIncludeFolders { get; set; } = true;
 
+    // 右鍵「自動改名」
+    public RenameStyle RenameStyle { get; set; } = RenameStyle.StampRandom;
+    /// <summary>改名前先打開視窗，看過新名字再確定。</summary>
+    public bool RenameAsk { get; set; }
+    /// <summary>「自己輸入名字＋編號」上次輸入的名字。</summary>
+    public string RenamePrefix { get; set; } = "";
+
     /// <summary>可選的日期資料夾格式：11-21、1121、11月21日、2026-11-21。</summary>
     public static readonly string[] DateFormats = ["MM-dd", "MMdd", "M月d日", "yyyy-MM-dd"];
 
@@ -40,6 +47,13 @@ public sealed class AppSettings
     public NumberOrder PickOrder { get; set; } = NumberOrder.Name;
 
     public PlanOptions QuickOptions => new(Mode, Order, Digits);
+
+    [JsonIgnore]
+    public RenameOptions RenameOptions => new(RenameStyle, Order, Digits, RenamePrefix);
+
+    /// <summary>要先開視窗：使用者選了先確認，或這個樣式需要輸入名字。</summary>
+    [JsonIgnore]
+    public bool RenameNeedsWindow => RenameAsk || RenameStyle == RenameStyle.PrefixNumber;
 
     static readonly JsonSerializerOptions Json = new()
     {

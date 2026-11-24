@@ -14,6 +14,7 @@
     <StackPanel Margin="10,12,8,12">
       <RadioButton x:Name="NavFav" Style="{StaticResource Nav}" Content="{local:T nav_fav}" GroupName="nav" Checked="Nav_Checked" IsChecked="True"/>
       <RadioButton x:Name="NavNaming" Style="{StaticResource Nav}" Content="{local:T nav_naming}" GroupName="nav" Checked="Nav_Checked"/>
+      <RadioButton x:Name="NavRename" Style="{StaticResource Nav}" Content="{local:T nav_rename}" GroupName="nav" Checked="Nav_Checked"/>
       <RadioButton x:Name="NavMenu" Style="{StaticResource Nav}" Content="{local:T nav_menu}" GroupName="nav" Checked="Nav_Checked"/>
       <RadioButton x:Name="NavLang" Style="{StaticResource Nav}" Content="{local:T nav_lang}" GroupName="nav" Checked="Nav_Checked"/>
     </StackPanel>
@@ -119,6 +120,20 @@
             <DockPanel Margin="14,12">
               <TextBlock Text="{local:T tidy_folders}" VerticalAlignment="Center"/>
               <CheckBox x:Name="TidyFolders" Style="{StaticResource Switch}" HorizontalAlignment="Right" Checked="Opt_Changed" Unchecked="Opt_Changed"/>
+            </DockPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- 自動改名 -->
+        <StackPanel x:Name="PageRename" Visibility="Collapsed">
+          <TextBlock Text="{local:T nav_rename}" Style="{StaticResource H2}" Margin="0,0,0,4"/>
+          <TextBlock Text="{local:T rn_style_d}" Style="{StaticResource Hint}" Margin="0,0,0,14"/>
+          <local:RenameStylePicker x:Name="RenamePicker"/>
+          <TextBlock Text="{local:T rn_prefix_d}" Style="{StaticResource Hint}" Margin="2,8,0,0"/>
+          <Border Style="{StaticResource CardBorder}" Margin="0,16,0,0">
+            <DockPanel Margin="14,12">
+              <TextBlock Text="{local:T rn_ask}" VerticalAlignment="Center"/>
+              <CheckBox x:Name="RenameAsk" Style="{StaticResource Switch}" HorizontalAlignment="Right" Checked="Opt_Changed" Unchecked="Opt_Changed"/>
             </DockPanel>
           </Border>
         </StackPanel>

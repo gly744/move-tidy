@@ -32,6 +32,9 @@ public partial class SettingsWindow : Window
         (_s.Digits switch { 1 => Dig1, 2 => Dig2, _ => Dig3 }).IsChecked = true;
         AutoClose.IsChecked = _s.AutoClose;
         TidyFolders.IsChecked = _s.TidyIncludeFolders;
+        RenamePicker.Selected = _s.RenameStyle;
+        RenamePicker.Changed += () => { _s.RenameStyle = RenamePicker.Selected; Save(menuChanged: false); };
+        RenameAsk.IsChecked = _s.RenameAsk;
         foreach (var fmt in AppSettings.DateFormats)
         {
             var rb = new RadioButton
@@ -55,6 +58,7 @@ public partial class SettingsWindow : Window
         if (PageFav is null) return;
         PageFav.Visibility = NavFav.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         PageNaming.Visibility = NavNaming.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        PageRename.Visibility = NavRename.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         PageMenu.Visibility = NavMenu.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         PageLang.Visibility = NavLang.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         if (NavMenu.IsChecked == true) RefreshMenuStatus();
@@ -118,6 +122,7 @@ public partial class SettingsWindow : Window
         _s.Digits = Dig1.IsChecked == true ? 1 : Dig2.IsChecked == true ? 2 : 3;
         _s.AutoClose = AutoClose.IsChecked == true;
         _s.TidyIncludeFolders = TidyFolders.IsChecked == true;
+        _s.RenameAsk = RenameAsk.IsChecked == true;
         Save(menuChanged: false);
     }
 

@@ -7,17 +7,20 @@ namespace MoveTidy.Core;
 /// <summary>搬了一個項目：原本的完整路徑 → 搬過去後的完整路徑。</summary>
 public sealed record MoveRecord(string From, string To, bool IsDirectory);
 
-/// <summary>一次移動（右鍵點一次）。</summary>
+public enum BatchKind { Move, Rename }
+
+/// <summary>一次移動或改名（右鍵點一次）。</summary>
 public sealed class MoveBatch
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public DateTime Time { get; set; } = DateTime.Now;
+    public BatchKind Kind { get; set; }
     public string Dest { get; set; } = "";
     public bool CreatedDest { get; set; }
     public List<MoveRecord> Items { get; set; } = [];
 
-    public static MoveBatch From(MoveResult r, string dest) =>
-        new() { Dest = NamePlanner.Normalize(dest), CreatedDest = r.CreatedDest, Items = [.. r.Records] };
+    public static MoveBatch From(MoveResult r, string dest, BatchKind kind = BatchKind.Move) =>
+        new() { Kind = kind, Dest = NamePlanner.Normalize(dest), CreatedDest = r.CreatedDest, Items = [.. r.Records] };
 }
 
 /// <summary>
@@ -102,29 +105,32 @@ public static class Undoer
     {
         var result = new UndoResult();
         int done = 0;
+        var chain = new NameChain(batch.Items.Select(r => (r.To, r.IsDirectory)));
         // 倒著做：如果同一批裡有東西依賴先前的步驟，倒序最安全
         for (int i = batch.Items.Count - 1; i >= 0; i--)
         {
             var rec = batch.Items[i];
             try
             {
-                bool there = rec.IsDirectory ? Directory.Exists(rec.To) : File.Exists(rec.To);
+                var now = chain.Where(rec.To);
+                bool there = rec.IsDirectory ? Directory.Exists(now) : File.Exists(now);
                 if (!there) { result.Missing.Add(rec.To); continue; }
 
                 var folder = Path.GetDirectoryName(rec.From)!;
                 Directory.CreateDirectory(folder);
                 var name = Path.GetFileName(rec.From);
+                chain.MakeRoom(rec.From);
                 if (Path.Exists(rec.From))
                 {
-                    var taken = new HashSet<string>(Directory.EnumerateFileSystemEntries(folder).Select(p => Path.GetFileName(p)!), StringComparer.OrdinalIgnoreCase);
-                    name = NamePlanner.UniqueKeepName(name, rec.IsDirectory, taken);
+                    name = NamePlanner.UniqueKeepName(name, rec.IsDirectory, NamePlanner.NamesIn(folder));
                     result.Renamed++;
                 }
-                Mover.MoveOne(rec.To, Path.Combine(folder, name), rec.IsDirectory);
+                Mover.MoveOne(chain.Take(rec.To), Path.Combine(folder, name), rec.IsDirectory);
                 result.Restored++;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
+                chain.PutBack(rec.To, rec.IsDirectory);
                 result.Failures.Add(new(rec.To, ex.Message, ex is UnauthorizedAccessException ? 5 : ex.HResult & 0xFFFF));
             }
             finally { progress?.Report(++done); }

@@ -9,11 +9,15 @@ namespace MoveTidy;
 
 /// <summary>
 /// 右下角的小進度窗：搬完後自動關閉（滑鼠移上去就停住）；有失敗時留著讓人看。
-/// 搬完可以按「撤回」；也用來執行右鍵的「撤回上一次移動」。
+/// 移動、複製（貼到這裡）、改名都用它；完成後可以按「撤回」，也用來執行右鍵的「撤回上一次」。
 /// </summary>
 public partial class ProgressWindow : Window
 {
+    enum Op { Move, Copy, Rename }
+
+    readonly Op _op;
     readonly IReadOnlyList<PlannedItem>? _plan;
+    readonly PasteClipboard? _clip;   // 「貼到這裡」用：搬完要清空剪貼簿
     readonly string _dest;
     readonly bool _autoClose;
     readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -25,19 +29,32 @@ public partial class ProgressWindow : Window
     UndoResult? _undo;            // 撤回的結果
     string? _error;
 
-    public ProgressWindow(IReadOnlyList<PlannedItem> plan, string dest, bool autoClose)
+    public ProgressWindow(IReadOnlyList<PlannedItem> plan, string dest, bool autoClose) : this(Op.Move, plan, dest, autoClose, null) { }
+
+    /// <summary>「貼到這裡」：剪下的就移動，複製的就複製。</summary>
+    public static ProgressWindow Paste(IReadOnlyList<PlannedItem> plan, string dest, bool autoClose, PasteClipboard clip) =>
+        new(clip.Cut ? Op.Move : Op.Copy, plan, dest, autoClose, clip);
+
+    /// <summary>「自動改名」：留在原資料夾，只換名字。</summary>
+    public static ProgressWindow Rename(IReadOnlyList<PlannedItem> plan, bool autoClose) =>
+        new(Op.Rename, plan, Path.GetDirectoryName(plan[0].Source) ?? plan[0].Source, autoClose, null);
+
+    ProgressWindow(Op op, IReadOnlyList<PlannedItem> plan, string dest, bool autoClose, PasteClipboard? clip)
     {
         InitializeComponent();
+        _op = op;
         _plan = plan;
+        _clip = clip;
         _dest = dest;
         _autoClose = autoClose;
         Init();
     }
 
-    /// <summary>右鍵「撤回上一次移動」：一打開就撤回這一批。</summary>
+    /// <summary>右鍵「撤回上一次」：一打開就撤回這一批。</summary>
     public ProgressWindow(MoveBatch batch, bool autoClose)
     {
         InitializeComponent();
+        _op = batch.Kind == BatchKind.Rename ? Op.Rename : Op.Move;
         _batch = batch;
         _dest = batch.Dest;
         _autoClose = autoClose;
@@ -69,8 +86,11 @@ public partial class ProgressWindow : Window
         var progress = new Progress<int>(SetBar);
         try
         {
-            _result = await Task.Run(() => Mover.Execute(_plan!, _dest, progress));
-            _batch = MoveBatch.From(_result, _dest);
+            _result = await Task.Run(() => _op == Op.Rename
+                ? Renamer.Execute(_plan!, progress)
+                : Mover.Execute(_plan!, _dest, progress, copy: _op == Op.Copy));
+            if (_result.Failures.Count == 0 && _result.Moved > 0) _clip?.ClearIfUnchanged();
+            _batch = MoveBatch.From(_result, _dest, _op == Op.Rename ? BatchKind.Rename : BatchKind.Move);
             try { MoveHistory.Add(_batch); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
         catch (Exception ex)
@@ -109,7 +129,8 @@ public partial class ProgressWindow : Window
     void Finish(bool ok, bool canUndo)
     {
         UndoBtn.Visibility = canUndo ? Visibility.Visible : Visibility.Collapsed;
-        OpenBtn.Visibility = _undoing ? Visibility.Collapsed : Visibility.Visible;
+        // 改名和貼上時，使用者本來就在這個資料夾裡
+        OpenBtn.Visibility = _undoing || _op == Op.Rename || _clip is not null ? Visibility.Collapsed : Visibility.Visible;
         Buttons.Visibility = Visibility.Visible;
         if (ok && _autoClose && !IsMouseOver) _timer.Start();
         Render();
@@ -123,12 +144,15 @@ public partial class ProgressWindow : Window
 
     void Render()
     {
-        PathText.Text = _undoing ? L.F("undo_path", PickWindow.ShortPath(_dest, 30)) : "→ " + PickWindow.ShortPath(_dest, 40);
+        bool rename = _op == Op.Rename;
+        PathText.Text = _undoing ? L.F(rename ? "rn_undo_path" : "undo_path", PickWindow.ShortPath(_dest, 30))
+                      : (rename ? "" : "→ ") + PickWindow.ShortPath(_dest, 40);
         PathText.ToolTip = _dest;
         bool running = _undoing ? _undo is null && _error is null : _result is null && _error is null;
         if (running)
         {
-            TitleText.Text = _undoing ? L.F("undoing", Total) : L.F("moving", _plan!.Count(p => p.Skip == SkipReason.None));
+            TitleText.Text = _undoing ? L.F("undoing", Total)
+                : L.F(_op switch { Op.Rename => "renaming", Op.Copy => "copying", _ => "moving" }, _plan!.Count(p => p.Skip == SkipReason.None));
             LeftText.Text = "";
             RightText.Text = "";
             return;
@@ -147,19 +171,21 @@ public partial class ProgressWindow : Window
                          .. _undo.Failures.Select(f => new { Name = Path.GetFileName(f.Source), Message = Explain(f) })];
             }
             else fails = [];
-            TitleText.Text = failed == 0 ? L.F("undone", _undo?.Restored ?? 0) : L.F("undo_fail", failed);
+            TitleText.Text = failed == 0 ? L.F(rename ? "rn_undone" : "undone", _undo?.Restored ?? 0) : L.F("undo_fail", failed);
         }
         else
         {
             failed = _error is not null ? _plan!.Count(p => p.Skip == SkipReason.None) : _result!.Failures.Count;
             if (_result is not null)
             {
-                parts.Add(_result.Renamed > 0 ? L.F("renamed_n", _result.Renamed) : L.Get("no_conflict"));
+                if (rename) parts.Add(L.F("rn_n", _result.Moved));
+                else parts.Add(_result.Renamed > 0 ? L.F("renamed_n", _result.Renamed) : L.Get("no_conflict"));
                 if (_result.Skipped > 0) parts.Add(L.F("skipped_n", _result.Skipped));
                 fails = [.. _result.Failures.Select(f => new { Name = Path.GetFileName(f.Source), Message = Explain(f) })];
             }
             else fails = [];
-            TitleText.Text = failed == 0 ? L.Get("done") : L.F("done_fail", failed);
+            var (good, bad) = _op switch { Op.Rename => ("rn_done", "rn_fail"), Op.Copy => ("copy_done", "copy_fail"), _ => ("done", "done_fail") };
+            TitleText.Text = failed == 0 ? L.Get(good) : L.F(bad, failed);
         }
         if (_error is not null) fails = [new { Name = _dest, Message = _error }];
 

@@ -6,7 +6,7 @@ public enum NamingMode { Keep, Number }
 
 public enum NumberOrder { Name, Modified }
 
-public enum SkipReason { None, AlreadyThere, IntoItself, Missing }
+public enum SkipReason { None, AlreadyThere, IntoItself, Missing, SameName }
 
 /// <summary>一個要搬的項目：從哪裡來、搬過去叫什麼。</summary>
 public sealed record PlannedItem(string Source, string TargetName, bool IsDirectory, bool Renamed, SkipReason Skip)
@@ -14,7 +14,8 @@ public sealed record PlannedItem(string Source, string TargetName, bool IsDirect
     public string OriginalName => Path.GetFileName(Source);
 }
 
-public sealed record PlanOptions(NamingMode Mode = NamingMode.Keep, NumberOrder Order = NumberOrder.Name, int Digits = 3);
+/// <param name="Copy">複製：來源本來就在目的地也照樣處理（多一份加號碼的）。</param>
+public sealed record PlanOptions(NamingMode Mode = NamingMode.Keep, NumberOrder Order = NumberOrder.Name, int Digits = 3, bool Copy = false);
 
 /// <summary>決定每個項目搬到目的地後的名字，不實際動檔案。</summary>
 public static partial class NamePlanner
@@ -30,7 +31,7 @@ public static partial class NamePlanner
     public static IReadOnlyList<PlannedItem> Plan(IEnumerable<string> sources, string destDir, PlanOptions options)
     {
         destDir = Normalize(destDir);
-        var taken = new HashSet<string>(ExistingNames(destDir), Cmp);
+        var taken = NamesIn(destDir);
 
         var items = new List<(string src, bool dir, SkipReason skip)>();
         var seen = new HashSet<string>(Cmp);
@@ -41,7 +42,7 @@ public static partial class NamePlanner
             bool dir = Directory.Exists(src);
             var skip = SkipReason.None;
             if (!dir && !File.Exists(src)) skip = SkipReason.Missing;
-            else if (Cmp.Equals(Path.GetDirectoryName(src) ?? "", destDir)) skip = SkipReason.AlreadyThere;
+            else if (!options.Copy && Cmp.Equals(Path.GetDirectoryName(src) ?? "", destDir)) skip = SkipReason.AlreadyThere;
             else if (dir && (Cmp.Equals(destDir, src) || destDir.StartsWith(src + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
                 skip = SkipReason.IntoItself;
             items.Add((src, dir, skip));
@@ -113,7 +114,7 @@ public static partial class NamePlanner
         return max + 1;
     }
 
-    static int CompareByTime(string a, bool aDir, string b, bool bDir)
+    internal static int CompareByTime(string a, bool aDir, string b, bool bDir)
     {
         var ta = aDir ? Directory.GetLastWriteTimeUtc(a) : File.GetLastWriteTimeUtc(a);
         var tb = bDir ? Directory.GetLastWriteTimeUtc(b) : File.GetLastWriteTimeUtc(b);
@@ -121,8 +122,9 @@ public static partial class NamePlanner
         return c != 0 ? c : NaturalComparer.Instance.Compare(Path.GetFileName(a), Path.GetFileName(b));
     }
 
-    static IEnumerable<string> ExistingNames(string dir) =>
-        Directory.Exists(dir) ? Directory.EnumerateFileSystemEntries(dir).Select(p => Path.GetFileName(p)!) : [];
+    /// <summary>資料夾裡現有的所有名字（不存在就是空的）。</summary>
+    internal static HashSet<string> NamesIn(string dir) =>
+        Directory.Exists(dir) ? new(Directory.EnumerateFileSystemEntries(dir).Select(p => Path.GetFileName(p)!), Cmp) : new(Cmp);
 
     public static string Normalize(string path) =>
         Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));

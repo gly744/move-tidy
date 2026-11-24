@@ -64,7 +64,7 @@ public partial class PickWindow : Window
         if (_base is null)
         {
             PathBox.Inlines.Add(new System.Windows.Documents.Run(L.Get("choose_dest")) { Foreground = (Brush)FindResource("Muted") });
-            Rows.ItemsSource = _sources.Select((s, i) => Row.Of(s, Path.GetFileName(s), Directory.Exists(s), false, SkipReason.None, i)).ToList();
+            Rows.ItemsSource = _sources.Select((s, i) => PreviewRow.Of(new(s, Path.GetFileName(s), Directory.Exists(s), false, SkipReason.None), i)).ToList();
             MoveBtn.IsEnabled = false;
             return;
         }
@@ -74,7 +74,7 @@ public partial class PickWindow : Window
             PathBox.Inlines.Add(new System.Windows.Documents.Run("\\" + _s.TodayFolderName()) { Foreground = (Brush)FindResource("Accent"), FontWeight = FontWeights.SemiBold });
 
         var plan = NamePlanner.Plan(_sources, Dest!, Options);
-        Rows.ItemsSource = plan.Select((p, i) => Row.Of(p.Source, p.TargetName, p.IsDirectory, p.Renamed, p.Skip, i)).ToList();
+        Rows.ItemsSource = plan.Select((p, i) => PreviewRow.Of(p, i)).ToList();
         MoveBtn.IsEnabled = plan.Any(p => p.Skip == SkipReason.None);
     }
 
@@ -117,31 +117,5 @@ public partial class PickWindow : Window
     {
         L.I.LanguageChanged -= Refresh;
         base.OnClosed(e);
-    }
-
-    /// <summary>預覽清單的一列。</summary>
-    sealed record Row(string Icon, string From, string To, string Tag, Brush? TagBg, Brush? TagFg, Visibility TagVisibility, double ToOpacity, Thickness Separator)
-    {
-        static readonly HashSet<string> ImageExt = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".heic", ".tif", ".tiff" };
-
-        public static Row Of(string source, string target, bool dir, bool renamed, SkipReason skip, int index)
-        {
-            var icon = dir ? "" : ImageExt.Contains(Path.GetExtension(source)) ? "" : "";
-            var app = Application.Current;
-            string tag = skip switch
-            {
-                SkipReason.AlreadyThere => L.Get("skip_there"),
-                SkipReason.IntoItself => L.Get("skip_into"),
-                SkipReason.Missing => L.Get("skip_missing"),
-                _ => renamed ? L.Get("renamed") : "",
-            };
-            bool isSkip = skip != SkipReason.None;
-            return new Row(icon, Path.GetFileName(source), isSkip ? "—" : target, tag,
-                (Brush)app.FindResource(isSkip ? "ErrBg" : "WarnBg"),
-                (Brush)app.FindResource(isSkip ? "ErrFg" : "WarnFg"),
-                tag.Length > 0 ? Visibility.Visible : Visibility.Collapsed,
-                isSkip ? 0.5 : 1,
-                new Thickness(0, index == 0 ? 0 : 1, 0, 0));
-        }
     }
 }
