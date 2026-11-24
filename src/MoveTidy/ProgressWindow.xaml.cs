@@ -121,11 +121,13 @@ public partial class ProgressWindow : Window
         }
         finally { SetBusy(false); }
         SetBar(Total);
-        Finish(ok: _error is null && _undo!.Failures.Count == 0 && _undo.Missing.Count == 0 && _undo.Changed.Count == 0 && _undo.Leftovers.Count == 0, canUndo: false);
+        Finish(ok: _error is null && _undo!.Failures.Count == 0 && _undo.Missing.Count == 0 && _undo.Changed.Count == 0 && _undo.Leftovers.Count == 0, canUndo: _undo is { Remaining.Count: > 0 });
+        if (_undo is not null) batch.Items = _undo.Remaining;
     }
 
     void Finish(bool ok, bool canUndo)
     {
+        UndoBtn.Content = L.Get(_undoing ? "retry" : "undo");
         UndoBtn.Visibility = canUndo ? Visibility.Visible : Visibility.Collapsed;
         // 改名和貼上時，使用者本來就在這個資料夾裡
         OpenBtn.Visibility = _undoing || _op == MoveOp.Rename || _clip is not null ? Visibility.Collapsed : Visibility.Visible;
@@ -187,6 +189,7 @@ public partial class ProgressWindow : Window
             failed = _error is not null ? Total : _undo!.Failures.Count + _undo.Missing.Count + _undo.Changed.Count;
             if (_undo is not null)
             {
+                if (_undo.Remaining.Count > 0) parts.Add(L.Get("undo_retry"));
                 if (_undo.Renamed > 0) parts.Add(L.F("undo_renamed", _undo.Renamed));
                 fails = [.. _undo.Missing.Select(m => new { Name = Path.GetFileName(m), Message = L.Get("undo_missing") }),
                          .. _undo.Changed.Select(m => new { Name = Path.GetFileName(m), Message = L.Get("undo_changed") }),

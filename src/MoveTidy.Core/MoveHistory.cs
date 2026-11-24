@@ -9,7 +9,7 @@ public sealed record MoveRecord(string From, string To, bool IsDirectory, string
     public static MoveRecord Of(string from, string to, bool isDirectory) => new(from, to, isDirectory, FileStamp.Of(to, isDirectory));
 
     /// <summary>在 <paramref name="path"/> 的還是當初搬的那個，沒被換掉或編輯過。</summary>
-    public bool StillSame(string path) => Stamp is null || Stamp == FileStamp.Of(path, IsDirectory);
+    public bool StillSame(string path) => Stamp is null || FileStamp.Matches(Stamp, path, IsDirectory);
 }
 
 public enum BatchKind { Move, Rename }
@@ -61,6 +61,14 @@ public static class MoveHistory
     public static void Remove(string id, string? file = null) =>
         Update(file, list => list.RemoveAll(b => b.Id == id));
 
+    /// <summary>這一批只剩下 <paramref name="items"/> 還沒撤回；沒有了就移除。</summary>
+    public static void Replace(string id, List<MoveRecord> items, string? file = null) =>
+        Update(file, list =>
+        {
+            if (items.Count == 0) list.RemoveAll(b => b.Id == id);
+            else if (list.Find(b => b.Id == id) is { } batch) batch.Items = items;
+        });
+
     static void Update(string? file, Action<List<MoveBatch>> change, bool save = true)
     {
         file ??= DefaultFile;
@@ -106,6 +114,8 @@ public sealed class UndoResult
     /// <summary>搬過去之後被換成別的、或編輯過的項目，沒有動它。</summary>
     public List<string> Changed { get; } = [];
     public List<MoveFailure> Failures { get; } = [];
+    /// <summary>失敗、之後可以再試的項目（跟原本的順序一樣）。</summary>
+    public List<MoveRecord> Remaining { get; } = [];
     /// <summary>已經放回原處，但搬過去的那邊有東西刪不掉：路徑 → 殘留所在的資料夾。</summary>
     public List<(string Source, string Left)> Leftovers { get; } = [];
 }
@@ -153,8 +163,10 @@ public static class Undoer
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                chain.PutBack(rec.To, rec.IsDirectory);
+                var at = chain.PutBack(rec.To, rec.IsDirectory);
+                if (ex is SourceRelocatedException r) at = r.At;
                 result.Failures.Add(MoveFailure.From(rec.To, ex));
+                result.Remaining.Insert(0, rec with { To = at });
             }
             finally { progress?.Report(++done); }
         }

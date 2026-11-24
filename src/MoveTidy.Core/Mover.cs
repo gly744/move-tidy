@@ -318,6 +318,57 @@ public static class Mover
         }
     }
 
+    /// <summary>
+    /// 意外中斷後收拾來源：只刪 <paramref name="other"/> 裡有一模一樣（逐位元組比對）的檔案，其他一律留下。
+    /// 全部刪完回傳 true。
+    /// </summary>
+    internal static bool DeleteDuplicates(string dir, string other)
+    {
+        bool all = true;
+        foreach (var e in new DirectoryInfo(dir).GetFileSystemInfos())
+        {
+            var twin = Path.Combine(other, e.Name);
+            try
+            {
+                if (IsLink(e))
+                {
+                    if (!Path.Exists(twin)) all = false;
+                    else if (e is DirectoryInfo) e.Delete();     // 只刪連結本身
+                    else DeleteFile(e.FullName);
+                }
+                else if (e is DirectoryInfo) all &= Directory.Exists(twin) && DeleteDuplicates(e.FullName, twin);
+                else all &= DeleteIfSame(e.FullName, twin);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { all = false; }
+        }
+        if (!all) return false;
+        var self = new DirectoryInfo(dir);
+        if (self.Attributes.HasFlag(FileAttributes.ReadOnly)) self.Attributes &= ~FileAttributes.ReadOnly;
+        self.Delete();
+        return true;
+    }
+
+    /// <summary>兩個檔案內容完全一樣才刪掉 file；比對到刪完之間都不給別人動 twin。</summary>
+    static bool DeleteIfSame(string file, string twin)
+    {
+        var info = new FileInfo(twin);
+        if (!info.Exists || info.Length != new FileInfo(file).Length) return false;
+        using var a = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 1);
+        using var b = new FileStream(twin, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
+        if (a.Length != b.Length) return false;
+        int size = (int)Math.Clamp(a.Length + 1, 1, 1 << 20);
+        var (x, y) = (new byte[size], new byte[size]);
+        while (true)
+        {
+            int n = a.ReadAtLeast(x, x.Length, throwOnEndOfStream: false);
+            int m = b.ReadAtLeast(y, y.Length, throwOnEndOfStream: false);
+            if (n != m || !x.AsSpan(0, n).SequenceEqual(y.AsSpan(0, m))) return false;
+            if (n == 0) break;
+        }
+        DeleteFile(file);
+        return true;
+    }
+
     /// <summary>刪除整個資料夾（包括唯讀檔），刪不掉的略過。裡面的捷徑連結只刪連結，不碰它指到的地方。</summary>
     internal static bool DeleteTree(string dir)
     {

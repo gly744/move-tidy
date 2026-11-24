@@ -217,6 +217,75 @@ public class UndoIdentityTests
     }
 
     [Fact]
+    public void ReplacedWithSameSizeAndTime_NotTouched()
+    {
+        using var t = new TempDir();
+        var src = t.File("src/x.txt", "AAAA");
+        var dest = t.Dir("dest");
+        var batch = Move(t, [src], dest);
+        var to = Path.Combine(dest, "x.txt");
+        var time = File.GetLastWriteTimeUtc(to);
+        File.Delete(to); File.WriteAllText(to, "BBBB"); File.SetLastWriteTimeUtc(to, time);
+        var u = Undoer.Execute(batch);
+        Assert.Equal((0, 1), (u.Restored, u.Changed.Count));
+        Assert.Equal("BBBB", File.ReadAllText(to));
+    }
+
+    [Fact]
+    public void StampFromPreviousVersion_StillMatches()
+    {
+        using var t = new TempDir();
+        var f = t.File("a.txt");
+        var now = FileStamp.Of(f, false)!;
+        Assert.Equal(4, now.Split(':').Length);
+        var old = string.Join(':', now.Split(':').Take(3));
+        Assert.True(FileStamp.Matches(old, f, false));
+        Assert.True(FileStamp.Matches(now, f, false));
+        File.AppendAllText(f, "+");
+        Assert.False(FileStamp.Matches(old, f, false));
+        // 改名、搬到同磁碟別的資料夾，還是同一個
+        now = FileStamp.Of(f, false)!;
+        var moved = Path.Combine(t.Dir("sub"), new string('長', 60) + ".txt");
+        File.Move(f, moved);
+        Assert.True(FileStamp.Matches(now, moved, false));
+    }
+
+    [Fact]
+    public void FailedItems_StayInHistory_AndCanBeRetried()
+    {
+        using var t = new TempDir();
+        var file = Path.Combine(t.Root, "data", "history.json");
+        string[] src = [t.File("src/1.txt", "1"), t.File("src/2.txt", "2"), t.File("src/3.txt", "3")];
+        var dest = Path.Combine(t.Root, "dest");
+        var batch = Move(t, src, dest);
+        using (File.Open(Path.Combine(dest, "2.txt"), FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var u = MoveSession.Undo(batch, historyFile: file);
+            Assert.Equal((2, 1), (u.Restored, u.Failures.Count));
+        }
+        var left = MoveHistory.Last(file)!;
+        Assert.Equal((batch.Id, 1), (left.Id, left.Items.Count));
+        Assert.Equal(1, MoveSession.Undo(left, historyFile: file).Restored);
+        Assert.Equal(["1", "2", "3"], src.Select(File.ReadAllText));
+        Assert.False(Directory.Exists(dest));          // 這次才建的資料夾，全部撤回後才刪
+        Assert.Null(MoveHistory.Last(file));
+    }
+
+    [Fact]
+    public void RenameSwap_FailedItem_CanBeRetriedWhereverItEndedUp()
+    {
+        using var t = new TempDir();
+        var file = Path.Combine(t.Root, "data", "history.json");
+        string[] src = [t.File("p/001.jpg", "一", new(2026, 1, 2)), t.File("p/002.jpg", "二", new(2026, 1, 3)), t.File("p/003.jpg", "三", new(2026, 1, 1))];
+        var (_, batch) = MoveSession.Run(Renamer.Plan(src, new(RenameStyle.PureNumber, NumberOrder.Modified)), Path.Combine(t.Root, "p"), MoveOp.Rename, historyFile: file);
+        using (File.Open(src[0], FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.NotEmpty(MoveSession.Undo(batch, historyFile: file).Failures);
+        while (MoveHistory.Last(file) is { } b) Assert.NotEqual(0, MoveSession.Undo(b, historyFile: file).Restored);
+        Assert.Equal(["一", "三", "二"], Directory.GetFiles(Path.Combine(t.Root, "p")).Select(File.ReadAllText).Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(Directory.GetFiles(Path.Combine(t.Root, "p")), n => Path.GetFileName(n).StartsWith("~mt-"));
+    }
+
+    [Fact]
     public void OldRecordsWithoutStamp_StillUndo()
     {
         using var t = new TempDir();
@@ -413,6 +482,58 @@ public class JournalTests
         t.File("data/pending-x.jsonl", "{\"Batch\":{\"Items\":null}}\n{\"Park\":{}}\n壞掉");
         t.File("data/pending-y.jsonl", "");
         Assert.Null(MoveHistory.Last(file));
+    }
+
+    /// <summary>搬好了、來源刪到一半時中斷：dest\\proj 是完整的，~mt-1-proj 是沒刪完的來源。</summary>
+    static (string src, string parked, string to, string file) InterruptedWhileDeleting(TempDir t)
+    {
+        var (src, parked, to) = (Path.Combine(t.Root, "proj"), t.Dir("~mt-1-proj"), t.Dir("dest/proj"));
+        foreach (var d in new[] { "~mt-1-proj", "dest/proj" }) { t.File(d + "/a.txt", "a"); t.File(d + "/sub/b.txt", "b"); t.File(d + "/c.txt", "c"); }
+        File.SetAttributes(Path.Combine(parked, "a.txt"), FileAttributes.ReadOnly);
+        var file = Path.Combine(t.Root, "data", "history.json");
+        using var j = MoveJournal.Start(new MoveBatch { Dest = Path.Combine(t.Root, "dest") }, file);
+        j.Parking(new(src, parked, true, Path.Combine(t.Root, "dest", "~mt-2")));
+        j.Moved(MoveRecord.Of(src, to, true));
+        return (src, parked, to, file);
+    }
+
+    [Fact]
+    public void Recover_TargetComplete_DeletesLeftoverSource()
+    {
+        using var t = new TempDir();
+        var (src, parked, to, file) = InterruptedWhileDeleting(t);
+        MoveJournal.Recover(file);
+        Assert.False(Directory.Exists(parked));
+        Assert.False(Directory.Exists(src));
+        Assert.Equal(3, Directory.GetFiles(to, "*", SearchOption.AllDirectories).Length);
+        Assert.Equal(to, MoveHistory.Last(file)!.Items[0].To);
+    }
+
+    [Fact]
+    public void Recover_TargetLostOrChangedFiles_KeepsThoseInSource()
+    {
+        using var t = new TempDir();
+        var (src, parked, to, file) = InterruptedWhileDeleting(t);
+        File.Delete(Path.Combine(to, "sub", "b.txt"));       // 目的地少了一個
+        File.WriteAllText(Path.Combine(to, "c.txt"), "x");   // 大小一樣、內容不同
+        MoveJournal.Recover(file);
+        Assert.False(Directory.Exists(parked));              // 不會留在奇怪的名字裡
+        Assert.Equal(["c.txt", @"sub\b.txt"], Directory.GetFiles(src, "*", SearchOption.AllDirectories).Select(p => Path.GetRelativePath(src, p)).Order());
+        Assert.Equal("c", File.ReadAllText(Path.Combine(src, "c.txt")));
+        Assert.Equal("x", File.ReadAllText(Path.Combine(to, "c.txt")));
+        Assert.True(File.Exists(Path.Combine(to, "a.txt")));
+    }
+
+    [Fact]
+    public void Recover_TargetFolderGoneOrReplaced_KeepsWholeSource()
+    {
+        using var t = new TempDir();
+        var (src, _, to, file) = InterruptedWhileDeleting(t);
+        Directory.Delete(to, true);
+        t.File("dest/proj/別的.txt");
+        MoveJournal.Recover(file);
+        Assert.Equal(3, Directory.GetFiles(src, "*", SearchOption.AllDirectories).Length);
+        File.SetAttributes(Path.Combine(src, "a.txt"), FileAttributes.Normal);
     }
 
     [Fact]

@@ -28,14 +28,14 @@ public static class MoveSession
         finally { journal.Complete(); }   // 中途出錯也把已經做的記下來
     }
 
-    /// <summary>撤回一批，完成後從紀錄移除。</summary>
+    /// <summary>撤回一批，完成後從紀錄移除；失敗的項目留在紀錄裡，之後可以再撤回一次。</summary>
     public static UndoResult Undo(MoveBatch batch, IProgress<int>? progress = null, string? historyFile = null)
     {
         using var journal = MoveJournal.Start(new MoveBatch { Dest = batch.Dest }, historyFile, undo: true);
         try
         {
             var result = Undoer.Execute(batch, progress, journal);
-            try { MoveHistory.Remove(batch.Id, historyFile); }
+            try { MoveHistory.Replace(batch.Id, result.Remaining, historyFile); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             return result;
         }
@@ -175,16 +175,10 @@ public sealed class MoveJournal : IDisposable
         var done = moved.LastOrDefault(m => string.Equals(m.From, note.Source, StringComparison.OrdinalIgnoreCase));
         if (Path.Exists(note.Parked))
         {
-            if (done is null)
-            {
-                // 還沒搬成：內容都在暫時的名字裡，放回原名
-                if (Mover.Unpark(note.Parked, note.Source, note.IsDirectory) == note.Parked) return false;
-            }
-            else if (note.IsDirectory && Directory.Exists(done.To) && done.Stamp is not null && done.StillSame(done.To))
-            {
-                // 已經核對過、確定在目的地：把來源沒刪完的刪完
-                if (!Mover.DeleteTree(note.Parked)) return true; // 刪不掉就留著，不擋後面的
-            }
+            // 已經搬好、只是來源沒刪完：目的地有一模一樣的才刪
+            bool cleared = done is not null && note.IsDirectory && Directory.Exists(done.To) && Mover.DeleteDuplicates(note.Parked, done.To);
+            // 其他的（還沒搬成、或目的地已經沒有那一份）都放回看得到的名字
+            if (!cleared && Mover.Unpark(note.Parked, note.Source, note.IsDirectory) == note.Parked) return false;
         }
         // 沒搬成的話，目的地的暫時複本沒用了（來源還在才刪）
         if (done is null && note.Copy is not null)

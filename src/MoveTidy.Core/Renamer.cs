@@ -203,17 +203,18 @@ sealed class NameChain
     }
 
     /// <summary>這個項目沒改成功：曾經讓開過的話，把原本的名字還給它（已被用掉就加號碼）。</summary>
-    public void PutBack(string path, bool dir)
+    /// <returns>它最後的位置。</returns>
+    public string PutBack(string path, bool dir)
     {
         _waiting.Remove(path);
-        if (!_parked.Remove(path, out var temp)) return;
+        if (!_parked.Remove(path, out var temp)) return path;
         try
         {
             var folder = Path.GetDirectoryName(path)!;
             var name = NamePlanner.UniqueKeepName(Path.GetFileName(path), dir, NamePlanner.NamesIn(folder));
             Mover.MoveOne(temp, Path.Combine(folder, name), dir);
+            return Path.Combine(folder, name);
         }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return temp; }
     }
 }
